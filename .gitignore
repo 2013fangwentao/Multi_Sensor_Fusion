@@ -26,3 +26,8 @@
 *.exe
 *.out
 *.app
+
+#output directories
+build
+bin
+.vscode
