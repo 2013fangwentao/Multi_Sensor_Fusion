@@ -5,13 +5,13 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Thu Jul 3 13:34:54 2019 little fang
+** Last update Thu Jul 10 下午9:00:15 2019 little fang
 */
 
 #include "filter/filter.h"
 #include "navconfig.hpp"
 #include "navlog.hpp"
-#include "navstruct.h"
+#include "navstruct.hpp"
 #include <iomanip>
 
 namespace mscnav
@@ -23,7 +23,7 @@ bool KalmanFilter::InitialStateCov(std::vector<double> init_state_cov)
   int size_vector = init_state_cov.size();
   if (size_vector == 0)
   {
-    naverrorlog("初始化方差错误,状态数量为 0 !");
+    LOG(FATAL)<<("初始化方差错误,状态数量为 0 !")<<std::endl;
     return false;
   }
   state_cov_ = Eigen::MatrixXd::Identity(size_vector, size_vector);
@@ -31,14 +31,14 @@ bool KalmanFilter::InitialStateCov(std::vector<double> init_state_cov)
   {
     state_cov_(i, i) = pow(init_state_cov[i], 2);
   }
-  navinfolog("初始化方差完成, 状态维度: %02d", size_vector);
+  LOG(INFO) << ("初始化方差完成, 状态维度: %02d", size_vector) << std::endl;
   if (debug_log_)
   {
     ConfigInfo::Ptr getconfig = ConfigInfo::GetInstance();
     debug_log_file_.open(getconfig->get<std::string>("filter_debug_cov_file"));
     if (!debug_log_file_)
     {
-      naverrorlog("Open filter debug file failed!");
+      LOG(INFO) << ("Open filter debug file failed!") << std::endl;
     }
   }
   return true;
@@ -55,12 +55,12 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
 {
   if (Phi.cols() != state_cov_.rows() || Phi.rows() != state_cov_.rows())
   {
-    navwarnlog("the Dimension of Phi is difference from State_cov");
+    LOG(ERROR) << ("the Dimension of Phi is difference from State_cov") << std::endl;
     return false;
   }
   if (Q.rows() != state_cov_.rows())
   {
-    navwarnlog("the Dimension of Q is difference from State_cov");
+    LOG(ERROR) << ("the Dimension of Q is difference from State_cov") << std::endl;
     return false;
   }
   state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;

@@ -16,7 +16,7 @@ INCLUDE_DIRECTORIES(/opt/thirdparty/install/include)
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include 
                     ${PROJECT_SOURCE_DIR}/submodules/tools/include
                     ${EIGEN3_INCLUDE_DIRS})
-
+                    
+add_subdirectory(${PROJECT_SOURCE_DIR}/submodules/tools)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/filter)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
-add_subdirectory(${PROJECT_SOURCE_DIR}/submodules/tools)

@@ -4,8 +4,8 @@
 ** Made by little fang
 ** Login   <fangwentao>
 **
-** Started on  Tue May 14 下午9:29:43 2019 little fang
-** Last update Thu Jul 3 13:31:01 2019 little fang
+** Started on  Tue May 14 9:29:43 2019 little fang
+** Last update Thu Jul 10 下午8:56:50 2019 little fang
 */
 #include "filter/filter.h"
 #include "navlog.hpp"
@@ -14,11 +14,10 @@
 #include <iostream>
 
 using namespace mscnav;
-using namespace mscnav::utiltool;
+using namespace utiltool;
 
 int main(int argc, const char *argv[])
 {
-  navloginit(argv[0], "./log/");
   int index = 0;
   std::vector<double> init_cov{0.8, 1, 3, 2.4};
   KalmanFilter filter;

@@ -6,12 +6,12 @@
 **
 ** base class of kalman filter
 ** Started on  Tue Dec 17 下午3:02:10 2018 little fang
-** Last update Thu Jul 3 13:13:04 2019 little fang
+** Last update Thu Jul 10 上午9:46:07 2019 little fang
 */
 
 #ifndef FILTER_H_
 #define FILTER_H_
-#include "navstruct.h"
+#include "navstruct.hpp"
 #include "navtime.h"
 #include <Eigen/Dense>
 #include <fstream>

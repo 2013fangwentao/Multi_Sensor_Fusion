@@ -30,4 +30,9 @@
 #output directories
 build
 bin
-.vscode
+.vscode/ipch
+
+#log & data
+*.log
+data
+*.ini
