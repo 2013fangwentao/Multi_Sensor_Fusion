@@ -36,3 +36,5 @@ bin
 *.log
 data
 *.ini
+log
+launch.json

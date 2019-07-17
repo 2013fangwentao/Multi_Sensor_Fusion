@@ -1,3 +1,3 @@
 rm -r build
 mkdir build && cd build
-cmake .. && make
+cmake .. && make -j3

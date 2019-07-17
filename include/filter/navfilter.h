@@ -6,7 +6,7 @@
 **
 ** base class of kalman filter
 ** Started on  Tue Dec 17 下午3:02:10 2018 little fang
-** Last update Thu Jul 10 上午9:46:07 2019 little fang
+** Last update Sun Jul 13 下午2:08:53 2019 little fang
 */
 
 #ifndef FILTER_H_
@@ -30,9 +30,16 @@ public:
   bool InitialStateCov(std::vector<double> init_state_cov);
   bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
   Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::MatrixXd &Z, const Eigen::MatrixXd &R,
-                                    const utiltool::NavTime &time);
+                                const utiltool::NavTime &time);
 
-private:
+public:
+  Eigen::MatrixXd GetStateCov() const;
+  Eigen::MatrixXd &GetStateCov();
+  size_t GetStateSize() const;
+  bool EliminateIndex(size_t index,size_t count =1);
+  bool InsertIndex(size_t start_index,std::vector<double> init_cov);
+
+protected:
   Eigen::MatrixXd state_cov_;
   bool debug_log_ = false;
   std::ofstream debug_log_file_;
