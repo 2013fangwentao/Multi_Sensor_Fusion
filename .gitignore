@@ -26,3 +26,15 @@
 *.exe
 *.out
 *.app
+
+#output directories
+build
+bin
+.vscode/ipch
+
+#log & data
+*.log
+data
+*.ini
+log
+launch.json
