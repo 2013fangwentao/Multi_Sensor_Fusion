@@ -46,6 +46,8 @@
         "typeinfo": "cpp",
         "utility": "cpp",
         "geometry": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "mutex": "cpp",
+        "algorithm": "cpp"
     }
 }

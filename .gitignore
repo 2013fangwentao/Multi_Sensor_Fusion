@@ -34,7 +34,7 @@ bin
 
 #log & data
 *.log
-data
 *.ini
+*.bin
 log
 launch.json
