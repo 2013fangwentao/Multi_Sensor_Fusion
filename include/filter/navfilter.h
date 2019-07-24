@@ -27,7 +27,7 @@ public:
   virtual ~KalmanFilter() {}
 
 public:
-  bool InitialStateCov(std::vector<double> init_state_cov);
+  bool InitialStateCov(const Eigen::VectorXd &init_state_cov);
   bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
   Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::MatrixXd &Z, const Eigen::MatrixXd &R,
                                 const utiltool::NavTime &time);
@@ -36,8 +36,8 @@ public:
   Eigen::MatrixXd GetStateCov() const;
   Eigen::MatrixXd &GetStateCov();
   size_t GetStateSize() const;
-  bool EliminateIndex(size_t index,size_t count =1);
-  bool InsertIndex(size_t start_index,std::vector<double> init_cov);
+  bool EliminateIndex(size_t index, size_t count = 1);
+  bool InsertIndex(size_t start_index, std::vector<double> init_cov);
 
 protected:
   Eigen::MatrixXd state_cov_;

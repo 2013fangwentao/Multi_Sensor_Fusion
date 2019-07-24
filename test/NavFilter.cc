@@ -24,7 +24,8 @@ int main(int argc, const char *argv[])
   LogInit(argv[0], "./log/");
 
   int index = 0;
-  std::vector<double> init_cov{0.8, 1, 3, 2.4};
+  Eigen::VectorXd init_cov;
+  init_cov <<0.8, 1, 3, 2.4;
   KalmanFilter filter(config->get<int>("filter_debug_output"));
   filter.InitialStateCov(init_cov);
   Eigen::MatrixXd Phi = Eigen::MatrixXd::Identity(4, 4);
@@ -61,7 +62,7 @@ int main(int argc, const char *argv[])
   filter.EliminateIndex(0);
   LOG(INFO) << " Cov2: \n"
             << filter.GetStateCov() << std::endl;
-  filter.InsertIndex(1, init_cov);
+  // filter.InsertIndex(1, init_cov);
   LOG(INFO) << " Cov3: \n"
             << filter.GetStateCov() << std::endl;
 }
