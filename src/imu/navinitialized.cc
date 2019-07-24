@@ -10,8 +10,11 @@
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
 #include "navattitude.hpp"
+#include "constant.hpp"
+
 using namespace utiltool;
 using namespace attitude;
+using namespace constant;
 using Eigen::Vector3d;
 
 namespace mscnav
@@ -34,6 +37,8 @@ NavInfo &MotionAligned(const GnssData::Ptr &gnss_data, NavInfo &nav_info)
     nav_info.att_(2) = (atan(vel_ned(1) / vel_ned(0)));
     nav_info.quat_ = Euler2Quaternion(nav_info.att_);
     nav_info.time_ = gnss_data->get_time();
+    nav_info.pos_std_ = gnss_data->pos_std_;
+    nav_info.vel_std_ = gnss_data->vel_std_;
     return nav_info;
 }
 Euler AcceLeveling(std::vector<ImuData::Ptr> &imu_buffer)
@@ -56,7 +61,7 @@ Euler AcceLeveling(std::vector<ImuData::Ptr> &imu_buffer)
  * @param  &nav_info:对准结束后的导航信息数据 
  * @retval 
  */
-bool InitialiedNav::StartAligning(utiltool::NavInfo &nav_info)
+bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
 {
     GnssData::Ptr gnss_data;
     ImuData::Ptr imu_data;
@@ -128,4 +133,96 @@ bool InitialiedNav::StartAligning(utiltool::NavInfo &nav_info)
     }
 }
 
+/**
+ * @brief  set the initialized variance of state
+ * @note   
+ * @param  &PVariance: 
+ * @param  &nav_info: 
+ * @retval 
+ */
+Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
+                                                    utiltool::NavInfo &nav_info,
+                                                    const StateIndex &index)
+{
+    if (!index.is_initialized)
+    {
+        LOG(ERROR) << "state index do not determined. Please make sure it is intialized before" << std::endl;
+        return PVariance;
+    }
+    bool user_define_std_pos_vel = config->get<int>("use_define_variance_pos_vel") == 0 ? false : true;
+    if (user_define_std_pos_vel)
+    {
+        auto pos_std = config->get_array<double>("initial_pos_std");
+        auto vel_std = config->get_array<double>("initial_vel_std");
+        PVariance.segment<6>(index.pos_index_) << pos_std[0], pos_std[1], pos_std[2], vel_std[0], vel_std[1], vel_std[2];
+    }
+    else
+    {
+        PVariance.segment<3>(index.pos_index_) = nav_info.pos_std_;
+        PVariance.segment<3>(index.vel_index_) = nav_info.vel_std_;
+    }
+    bool user_define_std_att = config->get<int>("use_define_variance_att") == 0 ? false : true;
+    if (user_define_std_att || aligned_mode_ == SETTING)
+    {
+        auto att_std = config->get_array<double>("initial_att_std");
+        PVariance.segment<3>(index.att_index_) << att_std[0], att_std[1], att_std[2];
+        LOG(INFO) << "The attitude initialized variance setted by configure file!!! configure file!!!" << std::endl;
+    }
+    else
+    {
+        if (aligned_mode_ == IN_MOTION)
+            PVariance.segment<3>(index.att_index_) << 5.0_deg, 5.0_deg, 5.0_deg;
+        if (aligned_mode_ == STATIONARY_AND_MOTION)
+            PVariance.segment<3>(index.att_index_) << 2.0_deg, 2.0_deg, 5.0_deg;
+        LOG(INFO) << "The attitude initialized variance setted by default!!! default!!!" << std::endl;
+    }
+    auto gyro_bias_std = config->get_array<double>("initial_gyro_bias_std");
+    auto acce_bias_std = config->get_array<double>("initial_acce_bias_std");
+    PVariance.segment<3>(index.gyro_bias_index_) << gyro_bias_std[0], gyro_bias_std[1], gyro_bias_std[2];
+    PVariance.segment<3>(index.gyro_bias_index_) *= constant::dh2rs;
+    PVariance.segment<3>(index.acce_bias_index_) << acce_bias_std[0], acce_bias_std[1], acce_bias_std[2];
+    PVariance.segment<3>(index.acce_bias_index_) *= constant_mGal;
+    bool evaluate_imu_scale = config->get<int>("evaluate_imu_scale") == 0 ? false : true;
+    if (evaluate_imu_scale)
+    {
+        auto gyro_scale_std = config->get_array<double>("initial_gyro_scale_std");
+        auto acce_scale_std = config->get_array<double>("initial_acce_scale_std");
+        PVariance.segment<3>(index.gyro_scale_index_) << gyro_scale_std[0], gyro_scale_std[1], gyro_scale_std[2];
+        PVariance.segment<3>(index.gyro_scale_index_) *= constant_ppm;
+        PVariance.segment<3>(index.acce_scale_index_) << acce_scale_std[0], acce_scale_std[1], acce_scale_std[2];
+        PVariance.segment<3>(index.acce_scale_index_) *= constant_ppm;
+    }
+    //TODO 使用其他状态量是确定其初始方差.
+    return PVariance;
+}
+/**
+ * @brief  Determine the index of the estmiate state
+ * @note   
+ * @param  &state_index: 
+ * @retval None
+ */
+void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
+{
+    int evaluate_imu_scale = config->get<int>("evaluate_imu_scale");
+    // bool rotation_iv = config->get<int>("evaluate_imu_vehicle_rotation");
+    state_index.pos_index_ = 0;
+    state_index.vel_index_ = 3;
+    state_index.att_index_ = 6;
+    state_index.gyro_bias_index_ = 9;
+    state_index.acce_bias_index_ = 12;
+    int basic_index = 12;
+    if (evaluate_imu_scale != 0)
+    {
+        state_index.gyro_bias_index_ = basic_index + 3;
+        state_index.gyro_scale_index_ = basic_index + 6;
+        basic_index += 6;
+    }
+    // TODO 使用里程计,相机等需要更新其他状态量的参数索引
+    // state_index.odometer_scale_index;
+    // state_index.imu_vehicle_rotation_index_;
+    // state_index.camera_delay_index_;
+    // state_index.camera_rotation_index_;
+    // state_index.camera_translation_index_;
+    state_index.is_initialized = true;
+}
 } // namespace mscnav

@@ -32,19 +32,21 @@ enum AlignedMode
  * @note   
  * @retval None
  */
-class InitialiedNav
+class InitializedNav
 {
 public:
-    InitialiedNav(const DataQueue::Ptr &ptr_data_queue) : ptr_data_queue_(ptr_data_queue)
+    InitializedNav(const DataQueue::Ptr &ptr_data_queue) : ptr_data_queue_(ptr_data_queue)
     {
         config = utiltool::ConfigInfo::GetInstance();
     }
-    ~InitialiedNav() {}
+    ~InitializedNav() {}
 
 public:
     bool StartAligning(utiltool::NavInfo &nav_info);
-    bool SetInitialVariance(std::vector<double> PVariance,
-                            utiltool::StateIndex &state_index);
+    Eigen::VectorXd &SetInitialVariance(Eigen::VectorXd &PVariance,
+                                        utiltool::NavInfo &nav_info,
+                                        const utiltool::StateIndex &index); //TODO 需要设定index 和对应的方差信息
+    void SetStateIndex(utiltool::StateIndex &state_index);
 
 private:
     AlignedMode aligned_mode_ = UNKOWN;

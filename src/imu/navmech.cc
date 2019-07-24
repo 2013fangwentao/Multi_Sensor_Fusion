@@ -58,7 +58,7 @@ Eigen::Quaterniond MechAttitudeUpdate(const ImuData &pre_imu_data, const ImuData
     Vector3d zeta = earth::wiee() * dt;
     Quaterniond quat_ee = attitude::RotationVector2Quaternion(zeta).conjugate();
     Quaterniond qbn_k = quat_ee * (pre_nav_info.quat_ * quat_bb);
-    
+
     /*赋值角速度和加速度 */
     nav_info_.wibb_ = Vector3d(curr_imu_data.gyro_ / dt);
     nav_info_.fibb_ = Vector3d(curr_imu_data.acce_ / dt);
@@ -118,8 +118,8 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     static int scale_of_acce = config->get<int>("evaluate_imu_scale") == 0 ? 0 : 3;
     static int scale_of_gyro = scale_of_acce;
     static int rows = 18 + scale_of_acce + scale_of_gyro, cols = rows;
-    static int corr_time_of_gyro_bias = config->get<int>("corr_time_of_gyro_bias");
-    static int corr_time_of_acce_bias = config->get<int>("corr_time_of_acce_bias");
+    static int corr_time_of_gyro_bias = config->get<int>("corr_time_of_gyro_bias") * constant_hour;
+    static int corr_time_of_acce_bias = config->get<int>("corr_time_of_acce_bias") * constant_hour;
     static int corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;
     if (scale_of_gyro == 3)
         corr_time_of_gyro_scale = config->get<int>("corr_time_of_gyro_scale") * constant_hour;

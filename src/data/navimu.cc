@@ -25,7 +25,7 @@ bool FileImuData::StartReadData()
 		return false;
 	}
 	ConfigInfo::Ptr config = ConfigInfo::GetInstance();
-	auto imu_file_path = config->get<std::string>("imu_file_path");
+	auto imu_file_path = config->get<std::string>("imu_data_path");
 	ifs_imufile_.open(imu_file_path, std::ifstream::binary);
 	if (!ifs_imufile_.good())
 	{

@@ -50,6 +50,9 @@ void output()
 
 int main(int argc, char const *argv[])
 {
+    Eigen::Vector3d v;
+    v << 1, 1, 2;
+    Eigen::Vector3d v2= v.array().pow(2);
     // output();
     LogInit(argv[0], "./log/");
     ConfigInfo::Ptr ptr = ConfigInfo::GetInstance();

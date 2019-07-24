@@ -18,7 +18,7 @@ namespace mscnav
 {
 using namespace utiltool;
 
-bool KalmanFilter::InitialStateCov(std::vector<double> init_state_cov)
+bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
 {
   int size_vector = init_state_cov.size();
   if (size_vector == 0)
@@ -26,11 +26,8 @@ bool KalmanFilter::InitialStateCov(std::vector<double> init_state_cov)
     LOG(FATAL) << ("初始化方差错误,状态数量为 0 !") << std::endl;
     return false;
   }
-  state_cov_ = Eigen::MatrixXd::Identity(size_vector, size_vector);
-  for (int i = 0; i < size_vector; ++i)
-  {
-    state_cov_(i, i) = pow(init_state_cov[i], 2);
-  }
+  Eigen::VectorXd P0 = init_state_cov.array().pow(2);
+  state_cov_ = P0.asDiagonal(); 
   LOG(INFO) << "初始化方差完成, 状态维度: " << size_vector << std::endl;
   if (debug_log_)
   {
