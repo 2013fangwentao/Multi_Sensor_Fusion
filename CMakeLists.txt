@@ -1,6 +1,7 @@
 cmake_minimum_required( VERSION 2.8 )
 PROJECT(mscnav)
 
+set(glog_DIR /opt/thirdparty/install/lib/cmake/glog)
 find_package(glog REQUIRED)
 find_package(Eigen3 REQUIRED)
 
