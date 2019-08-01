@@ -104,6 +104,10 @@ bool FileImuData::GetImuData(ImuData::Ptr &currimudata)
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(20));
 			LOG_EVERY_N(INFO, 500) << "Imudata thread sleep 10s" << std::endl;
+			if (int_markofcollectdata_ == 1)
+			{
+				return false;
+			}
 		}
 		std::unique_lock<std::mutex> lck(mtx_imudata_);
 		currimudata = imudatapool_.front();
