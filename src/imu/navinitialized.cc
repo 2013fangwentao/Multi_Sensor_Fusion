@@ -33,8 +33,8 @@ NavInfo &MotionAligned(const GnssData::Ptr &gnss_data, NavInfo &nav_info)
     Vector3d blh = earth::WGS84XYZ2BLH(nav_info.pos_);
     Vector3d vel_ned = earth::CalCe2n(blh(0), blh(1)) * nav_info.vel_;
     nav_info.att_(0) = 0.0;
-    nav_info.att_(1) = -atan(vel_ned(2) / sqrt(pow(vel_ned(0), 2) + pow(vel_ned(1), 2)));
-    nav_info.att_(2) = (atan(vel_ned(1) / vel_ned(0)));
+    nav_info.att_(1) = atan2(-vel_ned(2), sqrt(pow(vel_ned(0), 2) + pow(vel_ned(1), 2)));
+    nav_info.att_(2) = atan2(vel_ned(1), vel_ned(0));
     nav_info.quat_ = Euler2Quaternion(nav_info.att_);
     nav_info.time_ = gnss_data->get_time();
     nav_info.pos_std_ = gnss_data->pos_std_;

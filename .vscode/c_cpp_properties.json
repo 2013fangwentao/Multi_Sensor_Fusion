@@ -4,8 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/include",
-                "/opt/thirdparty/include",
-                "/opt/thirdparty/include/eigen3",
+                "/opt/thirdparty/install/include",
+                "/usr/local/include/eigen3",
                 "${workspaceFolder}/submodules/tools/include"
             ],
             "defines": [],
