@@ -27,7 +27,7 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
     return false;
   }
   Eigen::VectorXd P0 = init_state_cov.array().pow(2);
-  state_cov_ = P0.asDiagonal(); 
+  state_cov_ = P0.asDiagonal();
   LOG(INFO) << "初始化方差完成, 状态维度: " << size_vector << std::endl;
   if (debug_log_)
   {
@@ -124,6 +124,24 @@ Eigen::MatrixXd KalmanFilter::GetStateCov() const
   return state_cov_;
 }
 
+/**
+ * @brief  
+ * @note   
+ * @retval 
+ */
+StateIndex &KalmanFilter::GetStateIndex()
+{
+  return state_index_;
+}
+/**
+ * @brief  return the state index
+ * @note   
+ * @retval 
+ */
+StateIndex KalmanFilter::GetStateIndex() const
+{
+  return state_index_;
+}
 /**
  * @brief  get the count of state cov
  * @note   

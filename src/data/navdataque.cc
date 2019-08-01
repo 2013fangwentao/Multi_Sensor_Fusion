@@ -14,7 +14,7 @@ using namespace utiltool;
 
 namespace mscnav
 {
-
+    
 utiltool::BaseData::bPtr DataQueue::GetData()
 {
     utiltool::BaseData::bPtr data = std::make_shared<BaseData>();

@@ -6,7 +6,7 @@
 **
 ** base class of kalman filter
 ** Started on  Tue Dec 17 下午3:02:10 2018 little fang
-** Last update Sun Jul 13 下午2:08:53 2019 little fang
+** Last update Thu Jul 31 上午11:41:08 2019 little fang
 */
 
 #ifndef FILTER_H_
@@ -25,6 +25,7 @@ class KalmanFilter
 public:
   KalmanFilter(bool debug_log = false) : debug_log_(debug_log) {}
   virtual ~KalmanFilter() {}
+  using Ptr = std::shared_ptr<KalmanFilter>;
 
 public:
   bool InitialStateCov(const Eigen::VectorXd &init_state_cov);
@@ -35,6 +36,8 @@ public:
 public:
   Eigen::MatrixXd GetStateCov() const;
   Eigen::MatrixXd &GetStateCov();
+  utiltool::StateIndex GetStateIndex() const;
+  utiltool::StateIndex &GetStateIndex();
   size_t GetStateSize() const;
   bool EliminateIndex(size_t index, size_t count = 1);
   bool InsertIndex(size_t start_index, std::vector<double> init_cov);
@@ -43,6 +46,7 @@ protected:
   Eigen::MatrixXd state_cov_;
   bool debug_log_ = false;
   std::ofstream debug_log_file_;
+  utiltool::StateIndex state_index_;
 };
 
 } // namespace mscnav

@@ -40,6 +40,7 @@ public:
         config = utiltool::ConfigInfo::GetInstance();
     }
     ~InitializedNav() {}
+    using Ptr = std::shared_ptr<InitializedNav>;
 
 public:
     bool StartAligning(utiltool::NavInfo &nav_info);
