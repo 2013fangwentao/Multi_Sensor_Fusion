@@ -37,9 +37,7 @@ NavInfo &MechanicalArrangement(const ImuData &pre_imu_data, const ImuData &curr_
     nav_info_.pos_ = MechPositionUpdate(nav_info, curr_imu_data.get_time() - pre_imu_data.get_time());
     nav_info_.time_ = curr_imu_data.get_time();
     phi_mat = MechTransferMat(pre_imu_data, curr_imu_data, nav_info_);
-    nav_info_.rotation_ = attitude::Quaternion2RotationMatrix(nav_info_.quat_);
-    auto BLH = earth::WGS84XYZ2BLH(nav_info_.pos_);
-    nav_info_.att_ = attitude::RotationMartix2Euler(earth::CalCe2n(BLH(0), BLH(1)) * nav_info_.rotation_;
+    NormalizeAttitude(nav_info_);
     nav_info = nav_info_;
     return nav_info;
 }

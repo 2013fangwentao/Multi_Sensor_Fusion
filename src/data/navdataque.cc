@@ -14,7 +14,7 @@ using namespace utiltool;
 
 namespace mscnav
 {
-    
+
 utiltool::BaseData::bPtr DataQueue::GetData()
 {
     utiltool::BaseData::bPtr data = std::make_shared<BaseData>();
@@ -31,6 +31,10 @@ utiltool::BaseData::bPtr DataQueue::GetData()
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             LOG_EVERY_N(INFO, 200) << "BaseData thread sleep 10s" << std::endl;
+            if (aint_mark_data_flags_ == 1)
+            {
+                return data;
+            }
         }
         std::unique_lock<std::mutex> lck(mtx_data_);
         data = data_queue_.front();

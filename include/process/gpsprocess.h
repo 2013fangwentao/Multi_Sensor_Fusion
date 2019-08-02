@@ -28,7 +28,7 @@ public:
                            const utiltool::NavInfo &nav_info,
                            Eigen::VectorXd &dx);
 
-public:
+private:
     // static utiltool::NavTime last_time_;
     // static bool first_processing;
     KalmanFilter::Ptr filter_;

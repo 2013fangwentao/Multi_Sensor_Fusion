@@ -27,7 +27,7 @@ bool GpsProcess::processing(const utiltool::GnssData::Ptr &gnss_data,
     MatrixXd Zmat = MatrixXd::Zero(3, 1);
     Vector3d pos_std_pow = gnss_data->pos_std_.array.pow(2);
     MatrixXd Rmat = pos_std_pow.asDiagonal();
-    Zmat.segment<3>(0) = gnss_data->pos_ - CorrectLeverarmPos(nav_info);
+    Zmat.segment<3>(0) = gnss_data->pos_ - CorrectLeverarmPos(nav_info); //TODO 核对符号相关是否正确
     Hmat.block<3, 3>(0, index.pos_index_) = Matrix3d::Identity();
     Hmat.block<3, 3>(0, index.att_index_) = skew(nav_info.rotation_ * nav_info.leverarm_);
     dx = filter_->MeasureUpdate(Hmat, Zmat, Rmat, gnss_data->get_time());
