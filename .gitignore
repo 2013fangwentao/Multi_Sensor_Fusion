@@ -38,3 +38,6 @@ bin
 *.bin
 log
 launch.json
+*.gz
+*.zip
+*.rar

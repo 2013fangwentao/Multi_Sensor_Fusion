@@ -40,7 +40,7 @@ bool FileGnssData::StartReadGnssData()
 	}
 	if (logout_)
 	{
-		std::string log_path = config->get<std::string>("log_out_path");
+		std::string log_path = config->get<std::string>("gnsslog_out_path");
 		NavTime time = NavTime::NowTime();
 		log_path += "/gnss-data-" + time.Time2String() + ".log";
 		ofs_log_.open(log_path);
@@ -71,6 +71,10 @@ bool FileGnssData::GetData(GnssData::Ptr &gd)
 		{
 			std::this_thread::sleep_for(milliseconds(50));
 			LOG_EVERY_N(INFO, 200) << "GnssData thread sleep 10s" << std::endl;
+			if (aint_markofcollectdata_ == 1)
+			{
+				return false;
+			}
 		}
 		std::unique_lock<std::mutex> lck(mtx_collectdata_);
 		gd = gd_datapool_.front();

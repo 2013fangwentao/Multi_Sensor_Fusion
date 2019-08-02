@@ -40,6 +40,7 @@ public:
         config = utiltool::ConfigInfo::GetInstance();
     }
     ~InitializedNav() {}
+    using Ptr = std::shared_ptr<InitializedNav>;
 
 public:
     bool StartAligning(utiltool::NavInfo &nav_info);
@@ -52,8 +53,8 @@ private:
     AlignedMode aligned_mode_ = UNKOWN;
     utiltool::ConfigInfo::Ptr config;
     DataQueue::Ptr ptr_data_queue_;
+   // utiltool::NavInfo n_info;
 };
-
 } // namespace mscnav
 
 #endif /* !IMU_INITIALIZED_H_ */
