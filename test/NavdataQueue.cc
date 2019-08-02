@@ -16,20 +16,20 @@ using namespace utiltool;
 
 void output()
 {
-    // std::ofstream ofs_imu("./data/imu.bin", std::fstream::binary);
-    // int count = 0;
-    // NavTime time(2000, 15000.0);
-    // ImuData imu(time);
-    // imu.gyro_ = {0.1, 0.1, 0.1};
-    // imu.acce_ = {0.3, 0.3, 0.3};
-    // while (count < 60 * 10)
-    // {
-    //     ofs_imu.write(reinterpret_cast<char *>(&imu), sizeof(imu));
-    //     time += 0.1;
-    //     imu.set_time(time);
-    //     count++;
-    // }
-    // ofs_imu.close();
+    std::ofstream ofs_imu("./data/imu.bin", std::fstream::binary);
+    int count = 0;
+    NavTime time(1984, 15000.0);
+    ImuData imu(time);
+    imu.gyro_ = {0.1, 0.1, 0.1};
+    imu.acce_ = {0.3, 0.3, 0.3};
+    while (count < 60 * 10)
+    {
+        ofs_imu.write(reinterpret_cast<char *>(&imu), sizeof(imu));
+        time += 0.1;
+        imu.set_time(time);
+        count++;
+    }
+    ofs_imu.close();
 
     std::ifstream ifs_file("../data/imu_copy.bin", std::fstream::binary);
     while (!ifs_file.eof())
@@ -53,7 +53,7 @@ int main(int argc, char const *argv[])
     Eigen::Vector3d v;
     v << 1, 1, 2;
     Eigen::Vector3d v2= v.array().pow(2);
-    // output();
+    output();
     LogInit(argv[0], "./log/");
     ConfigInfo::Ptr ptr = ConfigInfo::GetInstance();
     ptr->open(argv[1]);

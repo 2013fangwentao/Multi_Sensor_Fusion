@@ -9,3 +9,6 @@ target_link_libraries( test_mech imu tools)
 
 add_executable(test_data_queue ./NavdataQueue.cc)
 target_link_libraries( test_data_queue data imu tools)
+
+add_executable(test_data_align ./NavAlign.cc)
+target_link_libraries( test_data_align data imu tools)
