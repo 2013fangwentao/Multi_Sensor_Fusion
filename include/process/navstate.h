@@ -23,12 +23,15 @@ namespace mscnav
 class State
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+public:
     ~State() {}
     using Ptr = std::shared_ptr<State>;
     static Ptr GetState();
 
 private:
-    State();
+    State(){}
     State(State &&) = delete;
     State(const State &) = delete;
     State &operator=(State &&) = delete;

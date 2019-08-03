@@ -22,8 +22,8 @@ int main(int argc, char **argv)
 {
     FILE *fp_imu;
     IMU_DATA imu;
-    fp_imu = fopen("/home/dcq/program/data/alignmentdata/00010190.imu", "rb");
-    std::ofstream fps_imu("../data/imu_file.bin", std::fstream::binary);
+    fp_imu = fopen("/media/fwt/Data/program/mscnav/data/alignmentdata/00010190.imu", "rb");
+    std::ofstream fps_imu("/media/fwt/Data/program/mscnav/data/alignmentdata/imu_file.bin", std::fstream::binary);
     while (!feof(fp_imu))
     {
         int n = fread(&imu, sizeof(IMU_DATA), 1, fp_imu);
@@ -49,24 +49,24 @@ int main(int argc, char **argv)
         LOG(INFO) << "test";
         LOG(INFO) << "test";
     } */
-    LogInit(argv[0], "./log/");
-    ConfigInfo::Ptr ptr = ConfigInfo::GetInstance();
-    ptr->open(argv[1]);
-    FileGnssData::Ptr gnss_data = std::make_shared<FileGnssData>();
-    FileImuData::Ptr imu_data = std::make_shared<FileImuData>();
-    gnss_data->StartReadGnssData();
-    imu_data->StartReadData();
+    // LogInit(argv[0], "./log/");
+    // ConfigInfo::Ptr ptr = ConfigInfo::GetInstance();
+    // ptr->open(argv[1]);
+    // FileGnssData::Ptr gnss_data = std::make_shared<FileGnssData>();
+    // FileImuData::Ptr imu_data = std::make_shared<FileImuData>();
+    // gnss_data->StartReadGnssData();
+    // imu_data->StartReadData();
 
-    DataQueue::Ptr data_align = std::make_shared<DataQueue>(gnss_data, imu_data);
-    InitializedNav align(data_align);
-    NavInfo nav_info;
-    align.StartAligning(nav_info);
-    if(nav_info.att_[2]<0)
-    {
-        nav_info.att_[2]=nav_info.att_[2]+2*3.1415926;
-    }
-    LOG(INFO)<<nav_info.time_<<std::setprecision(10)<<nav_info.att_.transpose() * constant::rad2deg<<std::endl;
-    // printf(" %f %f %f ",  nav_info.att_[0], nav_info.att_[1], nav_info.att_[2]);
-    navexit(0);
+    // DataQueue::Ptr data_align = std::make_shared<DataQueue>(gnss_data, imu_data);
+    // InitializedNav align(data_align);
+    // NavInfo nav_info;
+    // align.StartAligning(nav_info);
+    // if(nav_info.att_[2]<0)
+    // {
+    //     nav_info.att_[2]=nav_info.att_[2]+2*3.1415926;
+    // }
+    // LOG(INFO)<<nav_info.time_<<std::setprecision(10)<<nav_info.att_.transpose() * constant::rad2deg<<std::endl;
+    // // printf(" %f %f %f ",  nav_info.att_[0], nav_info.att_[1], nav_info.att_[2]);
+    // navexit(0);
     return 0;
 }

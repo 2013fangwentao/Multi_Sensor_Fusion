@@ -9,30 +9,12 @@ using namespace constant;
 namespace mscnav
 {
 
-State::Ptr State::state_ = std::make_shared<State>();
+State::Ptr State::state_(new State());
 
 State::Ptr State::GetState()
 {
     return state_;
 }
-
-State::State()
-{
-    config_ = ConfigInfo::GetInstance();
-
-    /* 数据相关内容 */
-    bool gnss_log_enable = (config_->get<int>("gnsslog_enable") != 0);
-    gnss_data_ = std::make_shared<FileGnssData>(gnss_log_enable);
-    imu_data_ = std::make_shared<FileImuData>();
-    data_queue_ = std::make_shared<DataQueue>(gnss_data_, imu_data_);
-
-    /*计算相关内容 */
-    bool filter_debug_log = (config_->get<int>("filter_debug_log_enable") != 0);
-    filter_ = std::make_shared<KalmanFilter>(filter_debug_log);
-    initialize_nav_ = std::make_shared<InitializedNav>(data_queue_);
-    gps_process_ = std::make_shared<GpsProcess>(filter_);
-}
-
 /**
  * @brief  初始化
  * @note   
@@ -40,6 +22,22 @@ State::State()
  */
 bool State::InitializeState()
 {
+    config_ = ConfigInfo::GetInstance();
+
+    /* 数据相关内容 */
+    bool gnss_log_enable = (config_->get<int>("gnsslog_enable") != 0);
+    gnss_data_ = std::make_shared<FileGnssData>(gnss_log_enable);
+    gnss_data_->StartReadGnssData();
+    imu_data_ = std::make_shared<FileImuData>();
+    imu_data_->StartReadData();
+    data_queue_ = std::make_shared<DataQueue>(gnss_data_, imu_data_);
+
+    /*计算相关内容 */
+    bool filter_debug_log = (config_->get<int>("filter_debug_log_enable") != 0);
+    filter_ = std::make_shared<KalmanFilter>(filter_debug_log);
+    initialize_nav_ = std::make_shared<InitializedNav>(data_queue_);
+    gps_process_ = std::make_shared<GpsProcess>(filter_);
+
     Eigen::VectorXd initial_Pvariance;
     if (initialize_nav_->StartAligning(nav_info_)) //获取初始的状态
     {
@@ -105,7 +103,7 @@ bool State::InitializeState()
             tmp_value[1] * constant_ppm,
             tmp_value[2] * constant_ppm;
     }
-    state_q_tmp = state_q_tmp.array.pow(2);
+    state_q_tmp = state_q_tmp.array().pow(2);
 
     int gbtime = config_->get<int>("corr_time_of_gyro_bias") * constant_hour;
     int abtime = config_->get<int>("corr_time_of_acce_bias") * constant_hour;
@@ -130,6 +128,7 @@ bool State::InitializeState()
         LOG(ERROR) << "Open Result File Failed\t" << output_file_path << std::endl;
     }
     ofs_result_output_ << nav_info_ << std::endl;
+    nav_info_bak_ = nav_info_;
     return true;
 }
 
@@ -159,19 +158,19 @@ void State::ReviseState(const Eigen::VectorXd &dx)
  */
 void State::StartProcessing()
 {
+    if (!InitializeState())
+    {
+        navexit();
+    }
     static int state_count = filter_->GetStateSize();
     static int output_rate = config_->get<int>("result_output_rate");
     GnssData::Ptr ptr_gnss_data = nullptr;
     ImuData::Ptr ptr_pre_imu_data, ptr_curr_imu_data;
     BaseData::bPtr base_data;
     Eigen::MatrixXd PHI = Eigen::MatrixXd::Identity(state_count, state_count);
-    Eigen::VectorXd dx = Eigen::MatrixXd::Zero(state_count);
+    Eigen::VectorXd dx = Eigen::VectorXd::Zero(state_count);
     int data_rate = config_->get<int>("data_rate");
     LOG(INFO) << "Starting Processing Data...." << std::endl;
-    if (!InitializeState())
-    {
-        navexit();
-    }
     while (true)
     {
         base_data = data_queue_->GetData();
@@ -196,6 +195,7 @@ void State::StartProcessing()
             Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
             filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
             gps_process_->processing(ptr_gnss_data, nav_info_, dx);
+            ReviseState(dx);
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             ptr_gnss_data = nullptr;
         }
@@ -211,13 +211,14 @@ void State::StartProcessing()
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = (nav_info_.time_.Second() * output_rate) - (nav_info_bak_.time_.Second() * output_rate);
+        int idt = int(nav_info_.time_.Second() * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
-            double second_of_week = nav_info_.time_.SecondOfWeek;
+            double second_of_week = nav_info_.time_.SecondOfWeek();
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
             ofs_result_output_ << InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time) << std::endl;
+            LOG(INFO) << nav_info_.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */
@@ -230,7 +231,7 @@ void State::StartProcessing()
         {
             ptr_gnss_data = std::dynamic_pointer_cast<GnssData>(base_data);
         }
-        else if(base_data->get_type() == DATAUNKOWN)
+        else if (base_data->get_type() == DATAUNKOWN)
         {
             break;
         }

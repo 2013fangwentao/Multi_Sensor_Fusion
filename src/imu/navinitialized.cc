@@ -178,6 +178,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
         LOG(ERROR) << "state index do not determined. Please make sure it is intialized before" << std::endl;
         return PVariance;
     }
+    PVariance = Eigen::VectorXd::Zero(index.total_state);
     bool user_define_std_pos_vel = config->get<int>("use_define_variance_pos_vel") == 0 ? false : true;
     if (user_define_std_pos_vel)
     {
@@ -246,6 +247,7 @@ void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
         state_index.gyro_scale_index_ = basic_index + 6;
         basic_index += 6;
     }
+    state_index.total_state = basic_index + 3; //TODO 需要调整
     // TODO 使用里程计,相机等需要更新其他状态量的参数索引
     // state_index.odometer_scale_index;
     // state_index.imu_vehicle_rotation_index_;

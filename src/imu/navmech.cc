@@ -116,7 +116,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
 
     static int scale_of_acce = config->get<int>("evaluate_imu_scale") == 0 ? 0 : 3;
     static int scale_of_gyro = scale_of_acce;
-    static int rows = 18 + scale_of_acce + scale_of_gyro, cols = rows;
+    static int rows = 15 + scale_of_acce + scale_of_gyro, cols = rows;
     static int corr_time_of_gyro_bias = config->get<int>("corr_time_of_gyro_bias") * constant_hour;
     static int corr_time_of_acce_bias = config->get<int>("corr_time_of_acce_bias") * constant_hour;
     static int corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;

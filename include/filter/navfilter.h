@@ -23,6 +23,9 @@ namespace mscnav
 class KalmanFilter
 {
 public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+public:
   KalmanFilter(bool debug_log = false) : debug_log_(debug_log) {}
   virtual ~KalmanFilter() {}
   using Ptr = std::shared_ptr<KalmanFilter>;
@@ -30,7 +33,7 @@ public:
 public:
   bool InitialStateCov(const Eigen::VectorXd &init_state_cov);
   bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
-  Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::MatrixXd &Z, const Eigen::MatrixXd &R,
+  Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
                                 const utiltool::NavTime &time);
 
 public:

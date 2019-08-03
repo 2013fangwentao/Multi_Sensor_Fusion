@@ -1,7 +1,7 @@
 #include "process/gpsprocess.h"
 #include "navconfig.hpp"
 #include "navearth.hpp"
-using namespace earth;
+using namespace utiltool::earth;
 using namespace utiltool;
 using Eigen::Matrix3d;
 using Eigen::Vector3d;
@@ -24,8 +24,8 @@ bool GpsProcess::processing(const utiltool::GnssData::Ptr &gnss_data,
     }
     size_t state_size = filter_->GetStateCov().cols();
     MatrixXd Hmat = MatrixXd::Zero(3, state_size);
-    MatrixXd Zmat = MatrixXd::Zero(3, 1);
-    Vector3d pos_std_pow = gnss_data->pos_std_.array.pow(2);
+    VectorXd Zmat = VectorXd::Zero(3);
+    Vector3d pos_std_pow = gnss_data->pos_std_.array().pow(2);
     MatrixXd Rmat = pos_std_pow.asDiagonal();
     Zmat.segment<3>(0) = gnss_data->pos_ - CorrectLeverarmPos(nav_info); //TODO 核对符号相关是否正确
     Hmat.block<3, 3>(0, index.pos_index_) = Matrix3d::Identity();
