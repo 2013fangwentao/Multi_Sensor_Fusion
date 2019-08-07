@@ -74,7 +74,7 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
   }
 }
 
-Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::MatrixXd &Z, const Eigen::MatrixXd &R,
+Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
                                             const utiltool::NavTime &time)
 {
   if (debug_log_)
@@ -91,7 +91,7 @@ Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eige
                     << R << std::endl;
   }
   Eigen::MatrixXd K = state_cov_ * H.transpose() * ((H * state_cov_ * H.transpose() + R).inverse());
-  Eigen::MatrixXd deltaX = K * Z;
+  Eigen::VectorXd deltaX = K * Z;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(state_cov_.rows(), state_cov_.cols());
   state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
   if (debug_log_)
@@ -101,7 +101,7 @@ Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eige
                     << "deltaX " << std::endl
                     << deltaX << std::endl;
   }
-  return deltaX.col(0);
+  return deltaX;
 }
 
 /**

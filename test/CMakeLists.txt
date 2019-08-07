@@ -12,3 +12,6 @@ target_link_libraries( test_data_queue data imu tools)
 
 add_executable(test_data_align ./NavAlign.cc)
 target_link_libraries( test_data_align data imu tools)
+
+add_executable(test_processing ./NavProcessing.cc)
+target_link_libraries( test_processing process filter data imu tools)
