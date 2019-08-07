@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:14:23 2019 little fang
-** Last update Thu Jul 31 下午3:23:42 2019 little fang
+** Last update Wed Aug 6 上午8:37:33 2019 dcq
 */
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
@@ -26,6 +26,15 @@ GnssData::Ptr &InterpolateGnssVel(const GnssData::Ptr &first, GnssData::Ptr &sec
     second->vel_ = (second->pos_ - first->pos_) / (second->get_time() - first->get_time());
     return second;
 }
+
+NavInfo &AttCaln2e(NavInfo &nav_info)
+{
+    Vector3d blh = earth::WGS84XYZ2BLH(nav_info.pos_);
+    nav_info.rotation_ = earth::CalCn2e(blh(0), blh(1)) * nav_info.rotation_;
+    nav_info.quat_ = RotationMartix2Quaternion(nav_info.rotation_);
+    return nav_info;
+}
+
 NavInfo &MotionAligned(const GnssData::Ptr &gnss_data, NavInfo &nav_info)
 {
     nav_info.pos_ = gnss_data->pos_;
@@ -35,8 +44,9 @@ NavInfo &MotionAligned(const GnssData::Ptr &gnss_data, NavInfo &nav_info)
     nav_info.att_(0) = 0.0;
     nav_info.att_(1) = atan2(-vel_ned(2), sqrt(pow(vel_ned(0), 2) + pow(vel_ned(1), 2)));
     nav_info.att_(2) = atan2(vel_ned(1), vel_ned(0));
-    nav_info.quat_ = Euler2Quaternion(nav_info.att_);
-    nav_info.rotation_ = Quaternion2RotationMatrix(nav_info.quat_);
+    nav_info.rotation_ = Euler2RotationMatrix(nav_info.att_);
+    /* 更新姿态为Cbe */
+
     nav_info.time_ = gnss_data->get_time();
     nav_info.pos_std_ = gnss_data->pos_std_;
     nav_info.vel_std_ = gnss_data->vel_std_;
@@ -122,6 +132,7 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
     {
         aligned_mode_ = IN_MOTION;
         nav_info = MotionAligned(gnss_data, nav_info);
+        nav_info = AttCaln2e(nav_info);
         return true; //面向车载设备,且设备坐标系与车体系差异不显著
     }
     else
@@ -154,6 +165,7 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
                     nav_info.quat_ = Euler2Quaternion(euler);
                     nav_info.rotation_ = Quaternion2RotationMatrix(nav_info.quat_);
                     nav_info.att_ = euler;
+                    nav_info = AttCaln2e(nav_info);
                     return true; //面向车载设备,且设备坐标系与车体系差异不显著
                 }
             }

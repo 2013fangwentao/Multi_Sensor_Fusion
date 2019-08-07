@@ -165,7 +165,7 @@ void State::StartProcessing()
     static int state_count = filter_->GetStateSize();
     static int output_rate = config_->get<int>("result_output_rate");
     GnssData::Ptr ptr_gnss_data = nullptr;
-    ImuData::Ptr ptr_pre_imu_data, ptr_curr_imu_data;
+    ImuData::Ptr ptr_pre_imu_data =std::make_shared<ImuData>(), ptr_curr_imu_data;
     BaseData::bPtr base_data;
     Eigen::MatrixXd PHI = Eigen::MatrixXd::Identity(state_count, state_count);
     Eigen::VectorXd dx = Eigen::VectorXd::Zero(state_count);
@@ -177,7 +177,7 @@ void State::StartProcessing()
         if (base_data->get_type() == IMUDATA)
         {
             ptr_curr_imu_data = std::dynamic_pointer_cast<ImuData>(base_data);
-            ptr_pre_imu_data = ptr_curr_imu_data;
+            *ptr_pre_imu_data = *ptr_curr_imu_data;
             ptr_pre_imu_data->set_time(nav_info_.time_);
             if (!(ptr_curr_imu_data->get_time() - nav_info_.time_ <= 1.0 / data_rate))
             {
