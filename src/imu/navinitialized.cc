@@ -5,12 +5,13 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:14:23 2019 little fang
-** Last update Wed Aug 6 上午8:37:33 2019 dcq
+** Last update Thu Aug 7 下午3:02:13 2019 little fang
 */
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
 #include "navattitude.hpp"
 #include "constant.hpp"
+#include <algorithm>
 
 using namespace utiltool;
 using namespace attitude;
@@ -45,8 +46,7 @@ NavInfo &MotionAligned(const GnssData::Ptr &gnss_data, NavInfo &nav_info)
     nav_info.att_(1) = atan2(-vel_ned(2), sqrt(pow(vel_ned(0), 2) + pow(vel_ned(1), 2)));
     nav_info.att_(2) = atan2(vel_ned(1), vel_ned(0));
     nav_info.rotation_ = Euler2RotationMatrix(nav_info.att_);
-    /* 更新姿态为Cbe */
-
+    nav_info.quat_ = RotationMartix2Quaternion(nav_info.rotation_);
     nav_info.time_ = gnss_data->get_time();
     nav_info.pos_std_ = gnss_data->pos_std_;
     nav_info.vel_std_ = gnss_data->vel_std_;

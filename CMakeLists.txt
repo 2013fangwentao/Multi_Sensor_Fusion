@@ -3,6 +3,7 @@ PROJECT(mscnav)
 
 find_package(glog REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(OpenCV REQUIRED)
 
 SET(CMAKE_CXX_COMPILE "g++")
 SET(CMAKE_C_COMPILE "gcc")
@@ -16,12 +17,17 @@ INCLUDE_DIRECTORIES(/opt/thirdparty/install/include)
 
 INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include 
                     ${PROJECT_SOURCE_DIR}/submodules/tools/include
-                    ${EIGEN3_INCLUDE_DIRS})
+                    ${PROJECT_SOURCE_DIR}/thirdparty
+                    ${EIGEN3_INCLUDE_DIRS}
+                    ${OpenCV_INCLUDE_DIRS})
 MESSAGE(STATUS "Eigen include: ${EIGEN3_INCLUDE_DIRS}")
-                    
+MESSAGE(STATUS "OpenCV include: ${OpenCV_INCLUDE_DIRS}")
+       
+add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty)
 add_subdirectory(${PROJECT_SOURCE_DIR}/submodules/tools)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/filter)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/imu)
+add_subdirectory(${PROJECT_SOURCE_DIR}/src/camera)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/data)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/process)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
