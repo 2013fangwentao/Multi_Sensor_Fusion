@@ -15,3 +15,9 @@ target_link_libraries( test_data_align data imu tools)
 
 add_executable(test_processing ./NavProcessing.cc)
 target_link_libraries( test_processing process filter data imu tools)
+
+add_executable(TimeConvert ./NavTime.cc)
+target_link_libraries( TimeConvert tools)
+
+add_executable(test_image ./NavImage.cc)
+target_link_libraries( test_image orbfeature camera tools ${OpenCV_LIBS})

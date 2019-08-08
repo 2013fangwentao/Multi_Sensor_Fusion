@@ -48,6 +48,8 @@
         "geometry": "cpp",
         "core": "cpp",
         "mutex": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "dense": "cpp",
+        "complex": "cpp"
     }
 }
