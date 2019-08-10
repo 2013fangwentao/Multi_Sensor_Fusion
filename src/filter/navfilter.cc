@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Wed Jul 16 上午11:06:29 2019 little fang
+** Last update Sat Aug 9 下午2:44:15 2019 little fang
 */
 
 #include "filter/navfilter.h"
@@ -51,25 +51,41 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
  */
 bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time)
 {
-  if (Phi.cols() != state_cov_.rows() || Phi.rows() != state_cov_.cols())
+  if (Phi.rows() != state_index_.total_state || Q.rows() != state_index_.total_state)
   {
-    LOG(ERROR) << ("the Dimension of Phi is difference from State_cov") << std::endl;
+    LOG(ERROR) << ("the Dimension of Phi/Q is difference from IMU State_cov") << std::endl;
     return false;
   }
-  if (Q.rows() != state_cov_.rows())
+
+  if (state_index_.camera_state_index.size() == 0)
   {
-    LOG(ERROR) << ("the Dimension of Q is difference from State_cov. ") << Q.rows() << std::endl;
-    return false;
+    state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
   }
-  state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
+  else
+  {
+    //* msckf 时间更新
+    //* 更新IMU部分的状态方差信息
+    auto &Nstate = state_index_.total_state;
+    state_cov_.block(0, 0, Nstate, Nstate) =
+        Phi * state_cov_.block(0, 0, Nstate, Nstate) * Phi.transpose() + Q;
+    state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
+
+    //* 更新IMU和Camera的协方差
+    auto Ncamstate = state_index_.camera_state_index.size() * 6;
+    state_cov_.block(0, Nstate, Nstate, Ncamstate) =
+        Phi * state_cov_.block(0, Nstate, Nstate, Ncamstate);
+    state_cov_.block(Nstate, 0, Ncamstate, Nstate) =
+        state_cov_.block(Nstate, 0, Ncamstate, Nstate) * Phi.transpose();
+  }
   if (debug_log_)
   {
-    debug_log_file_ << "\n"
+    debug_log_file_ << std::endl
                     << std::fixed << time.Time2String() << std::endl;
-    debug_log_file_ << std::setprecision(8) << "state cov\n"
+    debug_log_file_ << std::setprecision(8) << "state cov" << std::endl
                     << state_cov_ << std::endl
-                    << "PHI \n"
-                    << Phi << "\n Q \n"
+                    << "PHI " << std::endl
+                    << Phi << std::endl
+                    << " Q " << std::endl
                     << Q << std::endl;
   }
 }

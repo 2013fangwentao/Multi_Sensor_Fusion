@@ -20,4 +20,4 @@ add_executable(TimeConvert ./NavTime.cc)
 target_link_libraries( TimeConvert tools)
 
 add_executable(test_image ./NavImage.cc)
-target_link_libraries( test_image orbfeature camera tools ${OpenCV_LIBS})
+target_link_libraries( test_image orbfeature camera tools process filter ${OpenCV_LIBS})
