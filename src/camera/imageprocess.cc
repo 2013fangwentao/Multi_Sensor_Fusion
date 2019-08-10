@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Thu Aug 7 上午11:56:09 2019 little fang
+** Last update Fri Aug 8 下午8:45:18 2019 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -34,7 +34,7 @@ void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
                                        nlevels,
                                        ini_th_fast,
                                        min_th_fast);
-    matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
+    // matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
     is_initialed_ = true;
 }
 
@@ -46,7 +46,7 @@ void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
  * @param  descriptors: 对应关键点的描述子，输出给用户
  * @retval None
  */
-void ImageProcess::OrbFreatureExtract(cv::InputArray image,
+void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
                                       std::vector<cv::KeyPoint> &keypoints,
                                       cv::OutputArray descriptors)
 {

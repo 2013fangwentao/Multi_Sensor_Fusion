@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午5:13:31 2019 little fang
-** Last update Fri Aug 8 上午10:46:11 2019 little fang
+** Last update Fri Aug 8 下午8:45:35 2019 little fang
 */
 
 #ifndef IMAGE_PROCESS_H_
@@ -13,7 +13,6 @@
 
 #include <memory>
 #include <opencv2/features2d/features2d.hpp>
-#include "camera.hpp"
 #include "ORBextractor.h"
 
 namespace mscnav
@@ -37,7 +36,7 @@ public:
     static void Initialize(int nfeatures, float scale_factor, int nlevels,
                            int ini_th_fast, int min_th_fast);
 
-    static void OrbFreatureExtract(cv::InputArray image,
+    static void OrbFreatureExtract(const cv::InputArray &image,
                                    std::vector<cv::KeyPoint> &keypoints,
                                    cv::OutputArray descriptors);
 

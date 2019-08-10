@@ -50,6 +50,12 @@
         "mutex": "cpp",
         "algorithm": "cpp",
         "dense": "cpp",
-        "complex": "cpp"
+        "complex": "cpp",
+        "string": "cpp",
+        "bitset": "cpp",
+        "list": "cpp",
+        "cfenv": "cpp",
+        "regex": "cpp",
+        "csignal": "cpp"
     }
 }

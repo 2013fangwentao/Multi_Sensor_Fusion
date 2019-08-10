@@ -6,7 +6,7 @@
 **
 ** base class of kalman filter
 ** Started on  Tue Dec 17 下午3:02:10 2018 little fang
-** Last update Thu Jul 31 上午11:41:08 2019 little fang
+** Last update Sat Aug 9 下午2:44:29 2019 little fang
 */
 
 #ifndef FILTER_H_
@@ -32,9 +32,9 @@ public:
 
 public:
   bool InitialStateCov(const Eigen::VectorXd &init_state_cov);
-  bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
-  Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
-                                const utiltool::NavTime &time);
+  virtual bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
+  virtual Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
+                                        const utiltool::NavTime &time);
 
 public:
   Eigen::MatrixXd GetStateCov() const;

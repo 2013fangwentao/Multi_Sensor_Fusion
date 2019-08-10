@@ -5,6 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/include",
                 "${workspaceFolder}/thirdparty",
+                "/opt/thirdparty/include",
+                "/opt/thirdparty/include/eigen3",
                 "/usr/local/include",
                 "/usr/include/eigen3",
                 "${workspaceFolder}/submodules/tools/include"
