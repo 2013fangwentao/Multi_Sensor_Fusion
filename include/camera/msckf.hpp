@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Mon Aug 11 下午2:22:39 2019 little fang
+** Last update Wed Aug 13 下午3:16:47 2019 little fang
 */
 
 #ifndef FRAME_H_
@@ -45,9 +45,13 @@ private:
     bool CheckEnableTriangleate(const Feature &feature);
     bool LMOptimizatePosition(Feature &feature);
 
-    void FeatureJacobian();
-    void MeasurementJacobian();
-    void MeasurementUpdate();
+    // void FeatureJacobian();
+    bool MeasurementJacobian(const Feature &feature,
+                             Eigen::MatrixXd &H_state,
+                             Eigen::VectorXd &z_measure);
+    void MeasurementUpdate(const Eigen::MatrixXd &H_state,
+                           const Eigen::VectorXd &z_measure);
+
     void RemoveLostFeature();
     void FindRedundantCamStates();
 

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Mon Aug 11 下午2:52:23 2019 little fang
+** Last update Wed Aug 13 下午3:17:30 2019 little fang
 */
 
 #include "camera/msckf.hpp"
@@ -28,7 +28,7 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     int ini_th_fast = config_->get<int>("iniThFAST");
     int min_th_fast = config_->get<int>("minThFAST");
     ImageProcess::Initialize(num_features, scale_factor, num_levels, ini_th_fast, min_th_fast);
-    
+
     //* 相机内参和畸变矫正参数
     auto camera_par = config_->get_array<double>("camera_intrinsic");
     auto dist_par = config_->get_array<double>("camera_distcoeffs");
@@ -41,7 +41,7 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
                    0.0, camera_par[1], camera_par[3],
                    0.0, 0.0, 1.0);
 
-    dist_coeffs_ = (cv::Mat_<double>(5, 1) << dist_par[0],dist_par[1],dist_par[2],dist_par[3],dist_par[4]);
+    dist_coeffs_ = (cv::Mat_<double>(5, 1) << dist_par[0], dist_par[1], dist_par[2], dist_par[3], dist_par[4]);
 
     //* 外参设置
     auto cam_imu_rotation = config_->get_array<double>("camera_imu_rotation");
@@ -93,6 +93,19 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, Eigen::VectorXd &dx)
 
     //** 选择本次参与量测更新的点集
     DetermineMeasureFeature();
+
+    //** 特征点量测更新
+    for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
+    {
+        if (LMOptimizatePosition(iter_feature->second))
+        {
+            Eigen::MatrixXd H_state;
+            Eigen::VectorXd z_measure;
+
+            iter_feature->second.is_initialized_ = true;
+            MeasurementJacobian(iter_feature->second, H_state, z_measure);
+        }
+    }
 }
 
 /**
@@ -121,9 +134,11 @@ void MsckfProcess::AguementedState()
     J.block(0, 0, state_count, state_count) = Eigen::MatrixXd::Identity(state_count, state_count);
 
     //TODO 需要核对是rotation还是其装置 三行参数都需要再核对
-    J.block<3, 3>(state_count, 0) = cam_imu_tranformation_.rotation();
-    J.block<3, 3>(state_count + 3, 0) = navinfo.rotation_ * utiltool::skew(cam_imu_tranformation_.translation());
-    J.block<3, 3>(state_count + 3, 6) = Eigen::Matrix3d::Identity();
+    //TODO 协方差传递需要重新推到，对应顺序不对 初步调正,需要核实！！！
+    // !-> 需要核实！！！
+    J.block<3, 3>(state_count, 6) = cam_imu_tranformation_.rotation();
+    J.block<3, 3>(state_count + 3, 6) = navinfo.rotation_ * utiltool::skew(cam_imu_tranformation_.translation());
+    J.block<3, 3>(state_count + 3, 0) = Eigen::Matrix3d::Identity();
 
     Eigen::MatrixXd &state_cov = filter_->GetStateCov();
     state_cov = J * state_cov * J.transpose();
@@ -250,9 +265,68 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
 
 bool MsckfProcess::LMOptimizatePosition(Feature &feature)
 {
-
-    // cv::triangulatePoints()
+    //TODO  利用优化的方式解特征点的位置
 }
+
+/**
+ * @brief  对已经获得三维坐标的feature点进行量测更新
+ * @note   
+ * @param  &feature: 待更新的点
+ * @param  &H_state: 对应的量测更新矩阵
+ * @param  &z_measure: 该点对应的残差向量
+ * @retval 
+ */
+bool MsckfProcess::MeasurementJacobian(const Feature &feature,
+                                       Eigen::MatrixXd &H_state,
+                                       Eigen::VectorXd &z_measure)
+{
+    int state_count = map_state_set_.size();
+    int observe_feature_count = feature.observation_uv_.size();
+    const utiltool::StateIndex &state_index = filter_->GetStateIndex();
+    //* 一个相机状态观测到一个feature提供两个残差[u,v]
+    H_state = Eigen::MatrixXd::Zero(observe_feature_count * 2, state_count * 6 + state_index.total_state);
+    z_measure = Eigen::VectorXd::Zero(observe_feature_count * 2);
+    Eigen::MatrixXd H_feature = Eigen::MatrixXd::Zero(observe_feature_count * 2, 3);
+
+    int row_index = 0;
+    for (auto member : feature.observation_uv_)
+    {
+        auto &camera_state = map_state_set_[member.first];
+        auto &measure = member.second;
+        auto &point_coor_world = feature.position_world_;
+        auto iter_camera_index = state_index.camera_state_index.find(camera_state.state_id_);
+        if (iter_camera_index == state_index.camera_state_index.end())
+        {
+            LOG(ERROR) << "find camera state index failed" << std::endl;
+            continue;
+        }
+        Eigen::Vector3d l_cf_w = (point_coor_world - camera_state.position_);
+        Eigen::Vector3d point_f_c = camera_state.quat_.conjugate() * l_cf_w;
+        Eigen::MatrixXd J1 = Eigen::MatrixXd::Zero(2, 3);
+        Eigen::MatrixXd J2_1 = Eigen::MatrixXd::Zero(3, 6);
+        Eigen::MatrixXd J2_2 = Eigen::MatrixXd::Zero(3, 3);
+        double z_1 = 1.0 / point_coor_world(2);
+        J1 << z_1, 0, -point_coor_world(0) * z_1 * z_1,
+            0, z_1, -point_coor_world(1) * z_1 * z_1;
+        J2_1.block<3, 3>(0, 0) = camera_state.quat_.toRotationMatrix().transpose() *
+                                 utiltool::skew(l_cf_w);
+        J2_1.block<3, 3>(0, 3) = -1 * camera_state.quat_.toRotationMatrix().transpose();
+        J2_2 = camera_state.quat_.toRotationMatrix().transpose();
+        H_feature.block<2, 3>(row_index, 0) = J1 * J2_2;
+        H_state.block<2, 6>(row_index, iter_camera_index->second) = J1 * J2_1;
+        z_measure.segment<2>(row_index) << measure.x - point_f_c(0) / point_f_c(2),
+            measure.y - point_f_c(1) / point_f_c(2);
+        row_index += 2;
+    }
+
+    //* SVD求解Hf的左零空间，消除Hf
+    Eigen::JacobiSVD<Eigen::MatrixXd> svd_helper(H_feature, Eigen::ComputeFullU | Eigen::ComputeThinV);
+    Eigen::MatrixXd A = svd_helper.matrixU().rightCols(observe_feature_count * 2 - 3);
+    H_state = A.transpose() * H_state;
+    z_measure = A.transpose() * z_measure;
+    return true;
+}
+
 } // namespace camera
 
 } // namespace mscnav

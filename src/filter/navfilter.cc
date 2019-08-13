@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Sat Aug 9 下午2:44:15 2019 little fang
+** Last update Wed Aug 13 下午2:32:36 2019 little fang
 */
 
 #include "filter/navfilter.h"
@@ -71,7 +71,7 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
     state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
 
     //* 更新IMU和Camera的协方差
-    auto Ncamstate = state_index_.camera_state_index.size() * 6;
+    int Ncamstate = state_index_.camera_state_index.size() * 6;
     state_cov_.block(0, Nstate, Nstate, Ncamstate) =
         Phi * state_cov_.block(0, Nstate, Nstate, Ncamstate);
     state_cov_.block(Nstate, 0, Ncamstate, Nstate) =
