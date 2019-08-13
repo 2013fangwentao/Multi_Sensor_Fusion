@@ -5,11 +5,13 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Sun Aug 10 下午3:56:20 2019 little fang
+** Last update Mon Aug 11 下午2:52:23 2019 little fang
 */
 
 #include "camera/msckf.hpp"
 #include "camera/imageprocess.h"
+#include <opencv2/calib3d/calib3d.hpp>
+#include <opencv2/imgproc/imgproc.hpp>
 
 namespace mscnav
 {
@@ -26,6 +28,20 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     int ini_th_fast = config_->get<int>("iniThFAST");
     int min_th_fast = config_->get<int>("minThFAST");
     ImageProcess::Initialize(num_features, scale_factor, num_levels, ini_th_fast, min_th_fast);
+    
+    //* 相机内参和畸变矫正参数
+    auto camera_par = config_->get_array<double>("camera_intrinsic");
+    auto dist_par = config_->get_array<double>("camera_distcoeffs");
+    if (camera_par.size() != 4 || dist_par.size() != 5)
+    {
+        LOG(ERROR) << "camera_intrinsic/camera_distcoeffs size error" << std::endl;
+        getchar();
+    }
+    camera_mat_ = (cv::Mat_<double>(3, 3) << camera_par[0], 0.0, camera_par[2],
+                   0.0, camera_par[1], camera_par[3],
+                   0.0, 0.0, 1.0);
+
+    dist_coeffs_ = (cv::Mat_<double>(5, 1) << dist_par[0],dist_par[1],dist_par[2],dist_par[3],dist_par[4]);
 
     //* 外参设置
     auto cam_imu_rotation = config_->get_array<double>("camera_imu_rotation");
@@ -74,6 +90,9 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, Eigen::VectorXd &dx)
                                 matches_);
     //** 匹配的特征加入观测序列中
     AddObservation();
+
+    //** 选择本次参与量测更新的点集
+    DetermineMeasureFeature();
 }
 
 /**
@@ -129,20 +148,30 @@ void MsckfProcess::AddObservation()
     pre_camera_state--;
 
     //TODO 此处在后续测试中需要重点关注，可能存在很多bug
+    std::vector<cv::Point2f> keypoint_distorted, keypoint_undistorted;
     for (auto &member : matches_)
     {
         auto iter_feature = trainidx_feature_map_.find(member.trainIdx);
-        if (iter_feature == trainidx_feature_map_.end())
+        if (iter_feature == trainidx_feature_map_.end()) // 新的特征点，创建实例对象，并赋值
         {
             Feature feature;
-            feature.observation_uv_[pre_camera_state->first] = pre_frame_keypoints_[member.trainIdx].pt;
-            feature.observation_uv_[curr_camera_state->first] = curr_frame_keypoints_[member.queryIdx].pt;
+            keypoint_distorted.clear();
+            keypoint_undistorted.clear();
+            keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt);
+            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+            cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+            feature.observation_uv_[pre_camera_state->first] = keypoint_undistorted[0];
+            feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
             map_feature_set_[feature.feature_id_] = feature;
             curr_trainidx_feature_map_[member.queryIdx] = feature.feature_id_;
         }
-        else
+        else // 已经存在的特征点，直接在观测序列中加入当前观测
         {
-            map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = curr_frame_keypoints_[member.queryIdx].pt;
+            keypoint_distorted.clear();
+            keypoint_undistorted.clear();
+            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+            cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+            map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
             curr_trainidx_feature_map_[member.queryIdx] = iter_feature->second;
         }
     }
@@ -153,9 +182,9 @@ void MsckfProcess::AddObservation()
 
 /**
  * @brief  决定当前时刻使用多少特征点进行量测更新
- * @note   1.不在当前帧中可以观测到的点备选为可以进行；量测更新的点
- *         2.1中观测次数不超过三次的点，不参与量测更新
- *         3.无法进行三角化的点剔除，不参与量测更新
+ * @note   1.不在当前帧中可以观测到的点备选为可以进行量测更新的点
+ *         2.[1]中观测次数不超过三次的点，不参与量测更新
+ *         3.[1]无法进行三角化的点剔除，不参与量测更新
  * @retval None
  */
 void MsckfProcess::DetermineMeasureFeature()
@@ -171,7 +200,7 @@ void MsckfProcess::DetermineMeasureFeature()
             auto &feature = iter_member->second;
             if (feature.observation_uv_.size() > 3)
             {
-                if (CheckEnableTriangleate(iter_member->second))
+                if (CheckEnableTriangleate(feature))
                 {
                     map_observation_set_.insert(*iter_member);
                 }
@@ -217,6 +246,12 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
         return true;
     else
         return false;
+}
+
+bool MsckfProcess::LMOptimizatePosition(Feature &feature)
+{
+
+    // cv::triangulatePoints()
 }
 } // namespace camera
 
