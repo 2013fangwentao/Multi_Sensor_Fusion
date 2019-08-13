@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Sun Aug 10 下午2:31:36 2019 little fang
+** Last update Mon Aug 11 下午2:22:39 2019 little fang
 */
 
 #ifndef FRAME_H_
@@ -43,6 +43,7 @@ private:
     void AddObservation();
     void DetermineMeasureFeature();
     bool CheckEnableTriangleate(const Feature &feature);
+    bool LMOptimizatePosition(Feature &feature);
 
     void FeatureJacobian();
     void MeasurementJacobian();
@@ -51,24 +52,25 @@ private:
     void FindRedundantCamStates();
 
 private:
-    std::vector<cv::KeyPoint>
-        pre_frame_keypoints_;
-    std::vector<cv::KeyPoint> curr_frame_keypoints_;
     std::vector<cv::DMatch> matches_;
     cv::Mat pre_frame_descriptors_;
     cv::Mat curr_frame_descriptors_;
     Eigen::Isometry3d cam_imu_tranformation_;
+    std::vector<cv::KeyPoint> pre_frame_keypoints_;
+    std::vector<cv::KeyPoint> curr_frame_keypoints_;
 
     std::map<FeatureId, Feature> map_feature_set_;
     std::map<FeatureId, Feature> map_observation_set_;
     std::map<StateId, CameraState> map_state_set_;
 
 private:
-    std::map<int, FeatureId> trainidx_feature_map_;
+    bool is_first_ = true;
+    cv::Mat camera_mat_;
+    cv::Mat dist_coeffs_;
+    State::Ptr state_;
     KalmanFilter::Ptr filter_;
     utiltool::ConfigInfo::Ptr config_;
-    State::Ptr state_;
-    bool is_first_ = true;
+    std::map<int, FeatureId> trainidx_feature_map_;
 };
 } // namespace camera
 } // namespace mscnav
