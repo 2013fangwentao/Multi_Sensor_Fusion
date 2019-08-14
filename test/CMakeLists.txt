@@ -21,3 +21,8 @@ target_link_libraries( TimeConvert tools)
 
 add_executable(test_image ./NavImage.cc)
 target_link_libraries( test_image orbfeature camera tools process filter ${OpenCV_LIBS})
+
+find_package(gflags REQUIRED)
+INCLUDE_DIRECTORIES(${gflags_INCLUDE_DIRS})
+add_executable(CoorTarn ./NavCoorChange.cc)
+target_link_libraries(CoorTarn tools)

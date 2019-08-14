@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Jul 31 下午8:21:33 2019 little fang
-** Last update Fri Aug 8 下午8:48:24 2019 little fang
+** Last update Wed Aug 13 下午3:28:26 2019 little fang
 */
 
 #ifndef PROCESS_STATE_H_
@@ -41,10 +41,10 @@ private:
 public:
     void StartProcessing();
     NavInfo GetNavInfo() const;    
+    void ReviseState(const Eigen::VectorXd &dx);
     
 private:
     bool InitializeState();
-    void ReviseState(const Eigen::VectorXd &dx);
 
 private:
     DataQueue::Ptr data_queue_;

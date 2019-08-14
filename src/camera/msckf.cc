@@ -5,13 +5,16 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Wed Aug 13 下午3:17:30 2019 little fang
+** Last update Thu Aug 14 下午7:36:27 2019 little fang
 */
 
+#include "navattitude.hpp"
 #include "camera/msckf.hpp"
 #include "camera/imageprocess.h"
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+
+using namespace utiltool::attitude;
 
 namespace mscnav
 {
@@ -65,8 +68,11 @@ void MsckfProcess::FirstImageProcess(const cv::Mat &img1)
     return;
 }
 
-bool MsckfProcess::ProcessImage(const cv::Mat &img1, Eigen::VectorXd &dx)
+bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time)
 {
+    static int max_camera_size = config_->get<int>("max_camera_sliding_window");
+
+    curr_time_ = time;
     if (is_first_)
     {
         FirstImageProcess(img1);
@@ -95,17 +101,16 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, Eigen::VectorXd &dx)
     DetermineMeasureFeature();
 
     //** 特征点量测更新
-    for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
-    {
-        if (LMOptimizatePosition(iter_feature->second))
-        {
-            Eigen::MatrixXd H_state;
-            Eigen::VectorXd z_measure;
+    FeatureMeasureUpdate();
 
-            iter_feature->second.is_initialized_ = true;
-            MeasurementJacobian(iter_feature->second, H_state, z_measure);
-        }
+    //** 清除已经完成全部feature点量测的camera state
+    RemoveCameraState();
+    if (map_state_set_.size() > max_camera_size)
+    {
+        RemoveRedundantCamStates();
     }
+
+    return true;
 }
 
 /**
@@ -162,6 +167,7 @@ void MsckfProcess::AddObservation()
     auto pre_camera_state = curr_camera_state;
     pre_camera_state--;
 
+    int track_num = 0;
     //TODO 此处在后续测试中需要重点关注，可能存在很多bug
     std::vector<cv::Point2f> keypoint_distorted, keypoint_undistorted;
     for (auto &member : matches_)
@@ -179,6 +185,7 @@ void MsckfProcess::AddObservation()
             feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
             map_feature_set_[feature.feature_id_] = feature;
             curr_trainidx_feature_map_[member.queryIdx] = feature.feature_id_;
+            curr_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
         }
         else // 已经存在的特征点，直接在观测序列中加入当前观测
         {
@@ -188,11 +195,14 @@ void MsckfProcess::AddObservation()
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
             map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
             curr_trainidx_feature_map_[member.queryIdx] = iter_feature->second;
+            curr_camera_state->second.feature_id_set_.push_back(iter_feature->first);
+            track_num++;
         }
     }
     trainidx_feature_map_ = curr_trainidx_feature_map_;
     pre_frame_descriptors_ = curr_frame_descriptors_;
     pre_frame_keypoints_ = curr_frame_keypoints_;
+    tracking_rate_ = (double)(track_num) / (double)(curr_camera_state->second.feature_id_set_.size());
 }
 
 /**
@@ -266,6 +276,8 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
 bool MsckfProcess::LMOptimizatePosition(Feature &feature)
 {
     //TODO  利用优化的方式解特征点的位置
+    if (feature.is_initialized_)
+        return true;
 }
 
 /**
@@ -325,6 +337,141 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
     H_state = A.transpose() * H_state;
     z_measure = A.transpose() * z_measure;
     return true;
+}
+
+/**
+ * @brief  确定量测噪声，进行量测更新，返回dx
+ * @note   
+ * @param  &H_state: 量测矩阵
+ * @param  &z_measure: 残差矩阵
+ * @retval 修正量
+ */
+Eigen::VectorXd MsckfProcess::MeasurementUpdate(const Eigen::MatrixXd &H_state,
+                                                const Eigen::VectorXd &z_measure)
+{
+    static double pixel_noise = config_->get<double>("camera_pixel_noise");
+    Eigen::MatrixXd measure_noise = Eigen::MatrixXd::Identity(H_state.rows(), H_state.rows());
+    measure_noise = measure_noise * (pixel_noise * pixel_noise);
+    return filter_->MeasureUpdate(H_state, z_measure, measure_noise, curr_time_);
+}
+
+/**
+ * @brief  对相机状态进行反馈，更新相机的位姿
+ * @note   
+ * @param  &dx_camera: 
+ * @retval None
+ */
+void MsckfProcess::ReviseCameraState(const Eigen::VectorXd &dx_camera)
+{
+    int camera_state_count = 0;
+    // map_state_set_.size();
+    for (auto &camera_state : map_state_set_)
+    {
+        Eigen::Vector3d theta_camera = dx_camera.segment<3>(camera_state_count * 6);
+        Eigen::Vector3d t_camera = dx_camera.segment<3>(camera_state_count * 6 + 3);
+        camera_state_count++;
+        auto camera_quat_delta = RotationVector2Quaternion(theta_camera);
+        camera_state.second.quat_ = camera_quat_delta * camera_state.second.quat_;
+        camera_state.second.position_ += t_camera;
+    }
+    return;
+}
+
+/**
+ * @brief  移除多余的camera状态量，对feature完全没有观测了。
+ * @note   
+ * @retval None
+ */
+void MsckfProcess::RemoveCameraState()
+{
+    auto &index = filter_->GetStateIndex();
+    for (auto iter_camera = map_state_set_.begin(); iter_camera != map_state_set_.end();)
+    {
+        auto camera_state = iter_camera->second;
+        for (auto f_id : camera_state.feature_id_set_)
+        {
+            if (map_feature_set_.find(f_id) != map_feature_set_.end())
+            {
+                iter_camera++;
+                continue;
+            }
+        }
+        auto iter_index_camera = index.camera_state_index.find(iter_camera->first);
+        assert(iter_index_camera != index.camera_state_index.end());
+        filter_->EliminateIndex(iter_index_camera->second, 6);
+        index.camera_state_index.erase(iter_index_camera);
+        for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
+        {
+            iter_index_camera->second -= 6;
+        }
+        map_state_set_.erase(iter_camera);
+    }
+}
+
+/**
+ * @brief  循环更新全部的量测feature点集
+ * @note   
+ * @retval None
+ */
+void MsckfProcess::FeatureMeasureUpdate()
+{
+    for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
+    {
+        if (LMOptimizatePosition(iter_feature->second))
+        {
+            Eigen::MatrixXd H_state;
+            Eigen::VectorXd z_measure;
+            iter_feature->second.is_initialized_ = true;
+
+            MeasurementJacobian(iter_feature->second, H_state, z_measure);
+            Eigen::VectorXd dx = MeasurementUpdate(H_state, z_measure);
+            state_->ReviseState(dx.head(filter_->GetStateIndex().total_state));
+            ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
+        }
+    }
+    map_feature_set_.clear();
+}
+
+/**
+ * @brief  查找移除的两个状态量
+ * @note   
+ * @retval None
+ */
+void MsckfProcess::RemoveRedundantCamStates()
+{
+    std::vector<StateId> rm_cam_state_ids;
+    auto key_cam_state_iter = map_state_set_.end();
+    for (int i = 0; i < 4; ++i)
+        --key_cam_state_iter;
+    auto cam_state_iter = key_cam_state_iter;
+    ++cam_state_iter;
+    auto first_cam_state_iter = map_state_set_.begin();
+
+    const Eigen::Vector3d key_position = key_cam_state_iter->second.position_;
+    const Eigen::Matrix3d key_rotation = key_cam_state_iter->second.quat_.toRotationMatrix();
+
+    for (int i = 0; i < 2; ++i)
+    {
+        const Eigen::Vector3d position = cam_state_iter->second.position_;
+        const Eigen::Matrix3d rotation = cam_state_iter->second.quat_.toRotationMatrix();
+
+        double distance = (position - key_position).norm();
+        double angle = Eigen::AngleAxisd(rotation * key_rotation.transpose()).angle();
+
+        if (angle < 0.2618 && distance < 0.4 && tracking_rate_ > 0.5)
+        {
+            rm_cam_state_ids.push_back(cam_state_iter->first);
+            ++cam_state_iter;
+        }
+        else
+        {
+            rm_cam_state_ids.push_back(first_cam_state_iter->first);
+            ++first_cam_state_iter;
+        }
+    }
+    sort(rm_cam_state_ids.begin(), rm_cam_state_ids.end());
+
+    //TODO 更新这两个相机状态可以观测到feature点
 }
 
 } // namespace camera

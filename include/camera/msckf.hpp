@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Wed Aug 13 下午3:16:47 2019 little fang
+** Last update Wed Aug 13 下午3:30:46 2019 little fang
 */
 
 #ifndef FRAME_H_
@@ -35,7 +35,7 @@ public:
     MsckfProcess(const KalmanFilter::Ptr &filter);
     ~MsckfProcess();
 
-    bool ProcessImage(const cv::Mat &img1, Eigen::VectorXd &dx);
+    bool ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time);
 
 private:
     void FirstImageProcess(const cv::Mat &img1);
@@ -45,15 +45,18 @@ private:
     bool CheckEnableTriangleate(const Feature &feature);
     bool LMOptimizatePosition(Feature &feature);
 
-    // void FeatureJacobian();
     bool MeasurementJacobian(const Feature &feature,
                              Eigen::MatrixXd &H_state,
                              Eigen::VectorXd &z_measure);
-    void MeasurementUpdate(const Eigen::MatrixXd &H_state,
-                           const Eigen::VectorXd &z_measure);
+    Eigen::VectorXd MeasurementUpdate(const Eigen::MatrixXd &H_state,
+                                      const Eigen::VectorXd &z_measure);
 
-    void RemoveLostFeature();
-    void FindRedundantCamStates();
+    void ReviseCameraState(const Eigen::VectorXd &dx_camera);
+
+    void FeatureMeasureUpdate();
+
+    void RemoveCameraState();
+    void RemoveRedundantCamStates();
 
 private:
     std::vector<cv::DMatch> matches_;
@@ -69,12 +72,14 @@ private:
 
 private:
     bool is_first_ = true;
+    double tracking_rate_ = 1.0;
     cv::Mat camera_mat_;
     cv::Mat dist_coeffs_;
     State::Ptr state_;
     KalmanFilter::Ptr filter_;
     utiltool::ConfigInfo::Ptr config_;
     std::map<int, FeatureId> trainidx_feature_map_;
+    utiltool::NavTime curr_time_;
 };
 } // namespace camera
 } // namespace mscnav
