@@ -25,7 +25,7 @@ cmake .. && make -j3
 
 ### 功能
 - 松组合功能完善
-    - 发布版本链接 [release 1.0.0](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/releases) 使用时注意同时下载对应的tools程序，[链接](https://github.com/2013fangwentao/tools/releases)
+    - 发布版本链接 [release 1.0.0](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/releases) 使用时注意同时下载对应的tools程序[链接在此](https://github.com/2013fangwentao/tools/releases)
     - 对应分支为: [release/loose_couple_gnssins](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/tree/release/loose_couple_gnssins)
 - 视觉前端特征点提取，匹配，外点剔除功能完成（基于OpenCV和ORB-SLAM2）
 - msckf功能在跟进
