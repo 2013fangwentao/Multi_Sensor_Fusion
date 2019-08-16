@@ -40,7 +40,7 @@ bool FileGnssData::StartReadGnssData()
 	}
 	if (logout_)
 	{
-		std::string log_path = config->get<std::string>("gnsslog_out_path");
+		std::string log_path = config->get<std::string>("result_output_path");
 		NavTime time = NavTime::NowTime();
 		log_path += "/gnss-data-" + time.Time2String() + ".log";
 		ofs_log_.open(log_path);

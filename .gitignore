@@ -41,3 +41,5 @@ launch.json
 *.gz
 *.zip
 *.rar
+sim_data
+result

@@ -32,8 +32,10 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
   if (debug_log_)
   {
     ConfigInfo::Ptr getconfig = ConfigInfo::GetInstance();
-    debug_log_file_.open(getconfig->get<std::string>("filter_debug_cov_file"));
-    LOG(INFO) << "filter_debug_cov_file: " << getconfig->get<std::string>("filter_debug_cov_file") << std::endl;
+    std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/" +
+                                  getconfig->get<std::string>("filter_debug_cov_file");
+    debug_log_file_.open(debug_info_path);
+    LOG(INFO) << "filter_debug_cov_file: " << debug_info_path << std::endl;
     if (!debug_log_file_.good())
     {
       LOG(INFO) << ("Open filter debug file failed! ") << std::endl;

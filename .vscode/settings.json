@@ -48,6 +48,12 @@
         "geometry": "cpp",
         "core": "cpp",
         "mutex": "cpp",
-        "algorithm": "cpp"
+        "algorithm": "cpp",
+        "bitset": "cpp",
+        "complex": "cpp",
+        "list": "cpp",
+        "cfenv": "cpp",
+        "regex": "cpp",
+        "string": "cpp"
     }
 }

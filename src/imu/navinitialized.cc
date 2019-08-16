@@ -201,7 +201,8 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
     else
     {
         PVariance.segment<3>(index.pos_index_) = nav_info.pos_std_;
-        PVariance.segment<3>(index.vel_index_) = nav_info.vel_std_;
+        PVariance.segment<3>(index.vel_index_) = nav_info.pos_std_;
+        // PVariance.segment<3>(index.vel_index_) = nav_info.vel_std_;
     }
     bool user_define_std_att = config->get<int>("use_define_variance_att") == 0 ? false : true;
     if (user_define_std_att || aligned_mode_ == SETTING)
