@@ -28,7 +28,8 @@ cmake .. && make -j3
     - 发布版本链接 [release 1.0.0](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/releases) 使用时注意同时下载对应的tools程序，[链接](https://github.com/2013fangwentao/tools/releases)
     - 对应分支为: [release/loose_couple_gnssins](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/tree/release/loose_couple_gnssins)
 - 视觉前端特征点提取，匹配，外点剔除功能完成（基于OpenCV和ORB-SLAM2）
-- 目前程序还在持续开发,后续希望能做好松组合,基于msckf的vio+GPS
+- msckf功能在跟进
+- 目前程序还在持续开发,后续希望能做好GPS+IMU+CAMERA的定位功能
 
 ### 学习交流
 - QQ: 1280269817
