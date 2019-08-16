@@ -24,9 +24,9 @@ cmake .. && make -j3
 ```
 
 ### 功能
-- 支持纯惯导推算
-- 初始化功能完成,初步测试认为该功能可满足目前使用.支持给定姿态／动对准／加计调平后对准航向三种方式.（面向低成本IMU器件，不考虑高等级设备可以进行静止航向对准）
-- 初步完成松组合定位功能，需要进一步测试，准备整理一些开源数据进行测试，核实程序中公式，符号，单位等易错点
+- 松组合功能完善
+    - 发布版本链接 [release 1.0.0](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/releases) 使用时注意同时下载对应的tools程序，[链接](https://github.com/2013fangwentao/tools/releases)
+    - 对应分支为: [release/loose_couple_gnssins](https://github.com/2013fangwentao/Multi-Sensor-Combined-Navigation/tree/release/loose_couple_gnssins)
 - 视觉前端特征点提取，匹配，外点剔除功能完成（基于OpenCV和ORB-SLAM2）
 - 目前程序还在持续开发,后续希望能做好松组合,基于msckf的vio+GPS
 
