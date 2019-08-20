@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Thu Aug 14 下午7:36:27 2019 little fang
+** Last update Wed Aug 20 下午7:31:29 2019 little fang
 */
 
 #include "navattitude.hpp"
@@ -105,6 +105,7 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
 
     //** 清除已经完成全部feature点量测的camera state
     RemoveCameraState();
+
     if (map_state_set_.size() > max_camera_size)
     {
         RemoveRedundantCamStates();
@@ -378,7 +379,7 @@ void MsckfProcess::ReviseCameraState(const Eigen::VectorXd &dx_camera)
 }
 
 /**
- * @brief  移除多余的camera状态量，对feature完全没有观测了。
+ * @brief  移除多余的camera状态量，对feature完全没有观测了
  * @note   
  * @retval None
  */
@@ -399,7 +400,7 @@ void MsckfProcess::RemoveCameraState()
         auto iter_index_camera = index.camera_state_index.find(iter_camera->first);
         assert(iter_index_camera != index.camera_state_index.end());
         filter_->EliminateIndex(iter_index_camera->second, 6);
-        index.camera_state_index.erase(iter_index_camera);
+        iter_index_camera = index.camera_state_index.erase(iter_index_camera);
         for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
         {
             iter_index_camera->second -= 6;
@@ -433,7 +434,7 @@ void MsckfProcess::FeatureMeasureUpdate()
 }
 
 /**
- * @brief  查找移除的两个状态量
+ * @brief  查找移除的两个状态量,并更新对应的特征点
  * @note   
  * @retval None
  */
@@ -469,9 +470,59 @@ void MsckfProcess::RemoveRedundantCamStates()
             ++first_cam_state_iter;
         }
     }
-    sort(rm_cam_state_ids.begin(), rm_cam_state_ids.end());
+    std::sort(rm_cam_state_ids.begin(), rm_cam_state_ids.end());
 
     //TODO 更新这两个相机状态可以观测到feature点
+    map_observation_set_.clear();
+    for (auto &member : map_feature_set_)
+    {
+        auto &feature = member.second;
+        auto iter_cam1 = feature.observation_uv_.find(rm_cam_state_ids[0]);
+        auto iter_cam2 = feature.observation_uv_.find(rm_cam_state_ids[1]);
+        if (iter_cam1 != feature.observation_uv_.end() && iter_cam2 != feature.observation_uv_.end())
+        {
+            if (LMOptimizatePosition(feature))
+            {
+                Feature tmp_feature(feature.feature_id_);
+                tmp_feature.observation_uv_[rm_cam_state_ids[0]] = iter_cam1->second;
+                tmp_feature.observation_uv_[rm_cam_state_ids[1]] = iter_cam2->second;
+                tmp_feature.is_initialized_ = true;
+                tmp_feature.position_world_ = feature.position_world_;
+                feature.is_initialized_ = false;
+                map_observation_set_[tmp_feature.feature_id_] = tmp_feature;
+            }
+            feature.observation_uv_.erase(iter_cam1);
+            feature.observation_uv_.erase(iter_cam2);
+            continue;
+        }
+        if (iter_cam1 != feature.observation_uv_.end())
+        {
+            feature.observation_uv_.erase(iter_cam1);
+        }
+        if (iter_cam2 != feature.observation_uv_.end())
+        {
+            feature.observation_uv_.erase(iter_cam2);
+        }
+    }
+
+    //* 更新状态
+    FeatureMeasureUpdate();
+
+    //** 移除这两个相机状态
+    auto &index = filter_->GetStateIndex();
+    for (auto iter_camera : rm_cam_state_ids)
+    {
+        /* code */
+        auto iter_index_camera = index.camera_state_index.find(iter_camera);
+        assert(iter_index_camera != index.camera_state_index.end());
+        filter_->EliminateIndex(iter_index_camera->second, 6);
+        iter_index_camera = index.camera_state_index.erase(iter_index_camera);
+        for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
+        {
+            iter_index_camera->second -= 6;
+        }
+        map_state_set_.erase(iter_camera);
+    }
 }
 
 } // namespace camera
