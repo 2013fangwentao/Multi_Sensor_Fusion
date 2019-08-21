@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Wed Aug 20 下午7:31:29 2019 little fang
+** Last update Thu Aug 21 下午8:54:58 2019 little fang
 */
 
 #include "navattitude.hpp"
@@ -231,7 +231,7 @@ void MsckfProcess::DetermineMeasureFeature()
                     map_observation_set_.insert(*iter_member);
                 }
             }
-            map_feature_set_.erase(iter_member);
+            iter_member = map_feature_set_.erase(iter_member);
             continue;
         }
         iter_member++;
@@ -276,9 +276,36 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
 
 bool MsckfProcess::LMOptimizatePosition(Feature &feature)
 {
-    //TODO  利用优化的方式解特征点的位置
+    //TODO ceres初步撰写，需要测试
     if (feature.is_initialized_)
         return true;
+    ceres::Problem problem;
+    double position_world[3] = {0.0, 0.0, 0.0};
+    Eigen::Isometry3d cam0_tranformation;
+    cam0_tranformation.rotate(map_state_set_[feature.observation_uv_.begin()->first].quat_.toRotationMatrix());
+    cam0_tranformation.translate(map_state_set_[feature.observation_uv_.begin()->first].position_);
+
+    for (auto &observation : feature.observation_uv_)
+    {
+        auto &camera_id = observation.first;
+        auto &camera_state = map_state_set_[camera_id];
+        cv::Point2f &observation_point = observation.second;
+        Eigen::Isometry3d cam0_cami;
+        Eigen::Matrix3d cam0_cami_rotate = ((camera_state.quat_.conjugate()).toRotationMatrix() * cam0_tranformation.rotation()).transpose();
+        Eigen::Vector3d cam0_cami_translate = cam0_tranformation.rotation().transpose() * (camera_state.position_ - cam0_tranformation.translation());
+        cam0_cami.rotate(cam0_cami_rotate);
+        cam0_cami.translate(cam0_cami_translate);
+        ceres::CostFunction *cost_function = ReprojectionError::Create(observation_point, cam0_cami);
+        problem.AddResidualBlock(cost_function, NULL, position_world);
+    }
+    ceres::Solver::Options options;
+    options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.minimizer_progress_to_stdout = true;
+    ceres::Solver::Summary summary;
+    ceres::Solve(options, &problem, &summary);
+    feature.position_world_ << position_world[0], position_world[1], position_world[2];
+    feature.position_world_ = cam0_tranformation * feature.position_world_;
+    return true;
 }
 
 /**
@@ -405,7 +432,7 @@ void MsckfProcess::RemoveCameraState()
         {
             iter_index_camera->second -= 6;
         }
-        map_state_set_.erase(iter_camera);
+        iter_camera = map_state_set_.erase(iter_camera);
     }
 }
 

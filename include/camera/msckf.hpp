@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Wed Aug 13 下午3:30:46 2019 little fang
+** Last update Thu Aug 21 下午9:06:59 2019 little fang
 */
 
 #ifndef FRAME_H_
@@ -24,11 +24,41 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
+#include <ceres/ceres.h>
 
 namespace mscnav
 {
 namespace camera
 {
+
+struct ReprojectionError
+{
+    ReprojectionError(const cv::Point2f &measure_point_uv,
+                      const Eigen::Isometry3d &cam0_cami_transform) : image_uv(measure_point_uv),
+                                                                      cam0_cami(cam0_cami_transform) {}
+    template <typename T>
+    bool operator()(const T *const feature_point_world, T *residuals) const
+    {
+        Eigen::Matrix<T, 3, 1> point;
+        point << feature_point_world[0], feature_point_world[1], feature_point_world[2];
+
+        point = cam0_cami * point;
+        T point_reproject_image[2] = {point(0) / point(2), point(1) / point(2)};
+        residuals[0] = point_reproject_image[0] - T(image_uv.x);
+        residuals[1] = point_reproject_image[1] - T(image_uv.y);
+        return true;
+    }
+
+    static ceres::CostFunction *Create(const cv::Point2f &measure_point_uv,
+                                       const Eigen::Isometry3d &cam0_cami_transform)
+    {
+        return new ceres::AutoDiffCostFunction<ReprojectionError, 2, 3>(new ReprojectionError(measure_point_uv, cam0_cami_transform));
+    }
+
+    const cv::Point2f image_uv;
+    const Eigen::Isometry3d cam0_cami;
+};
+
 class MsckfProcess
 {
 public:

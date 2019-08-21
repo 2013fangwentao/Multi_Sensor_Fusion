@@ -22,7 +22,8 @@ INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include
                     ${PROJECT_SOURCE_DIR}/submodules/tools/include
                     ${PROJECT_SOURCE_DIR}/thirdparty
                     ${EIGEN3_INCLUDE_DIRS}
-                    ${OpenCV_INCLUDE_DIRS})
+                    ${OpenCV_INCLUDE_DIRS}
+                    ${CERES_INCLUDE_DIRS})
 MESSAGE(STATUS "Eigen include: ${EIGEN3_INCLUDE_DIRS}")
 MESSAGE(STATUS "OpenCV include: ${OpenCV_INCLUDE_DIRS}")
 MESSAGE(STATUS "Ceres include: ${CERES_INCLUDE_DIRS}")
