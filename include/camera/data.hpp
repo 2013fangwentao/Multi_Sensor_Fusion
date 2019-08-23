@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 21 下午9:24:01 2019 little fang
-** Last update Thu Aug 21 下午9:48:52 2019 little fang
+** Last update Sat Aug 23 上午10:59:11 2019 little fang
 */
 
 #ifndef CAMERA_DATA_H_
@@ -32,6 +32,11 @@ public:
     {
         data_type_ = utiltool::DataType::CAMERADATA;
     };
+    CameraData(const NavTime &time,const cv::Mat& image) : BaseData(time)
+    {
+        image_ = image.clone();
+        data_type_ = utiltool::DataType::CAMERADATA;
+    };
     CameraData()
     {
         data_type_ = utiltool::DataType::CAMERADATA;
@@ -39,18 +44,20 @@ public:
     ~CameraData() {}
     CameraData &operator=(const CameraData &camera)
     {
-        *this = camera;
-        this->image = camera.image.clone();
+        this->t0_ = camera.get_time();
+        this->data_type_ = camera.get_type();
+        this->image_ = camera.image_.clone();
         return *this;
     }
     CameraData(const CameraData &camera)
     {
-        *this = camera;
-        this->image = camera.image.clone();
+        this->t0_ = camera.get_time();
+        this->data_type_ = camera.get_type();
+        this->image_ = camera.image_.clone();
     }
 
 public:
-    cv::Mat image;
+    cv::Mat image_;
 };
 using CAMERADATAPOOL = std::deque<CameraData>;
 
