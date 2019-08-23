@@ -26,17 +26,40 @@ bool State::InitializeState()
 
     /* 数据相关内容 */
     bool gnss_log_enable = (config_->get<int>("gnsslog_enable") != 0);
+    camera_enable = (config_->get<int>("camera_enable") != 0);
     gnss_data_ = std::make_shared<FileGnssData>(gnss_log_enable);
-    gnss_data_->StartReadGnssData();
+    if (!gnss_data_->StartReadGnssData())
+    {
+        navexit();
+    }
+
     imu_data_ = std::make_shared<FileImuData>();
-    imu_data_->StartReadData();
-    data_queue_ = std::make_shared<DataQueue>(gnss_data_, imu_data_);
+    if (!imu_data_->StartReadData())
+    {
+        navexit();
+    }
+
+    if (camera_enable)
+    {
+        camera_data_ = std::make_shared<FileCameraData>();
+        if (!camera_data_->StartReadCameraData())
+        {
+            navexit();
+        }
+    }
+
+    data_queue_ = std::make_shared<DataQueue>(gnss_data_, imu_data_, camera_data_);
 
     /*计算相关内容 */
     bool filter_debug_log = (config_->get<int>("filter_debug_log_enable") != 0);
     filter_ = std::make_shared<KalmanFilter>(filter_debug_log);
     initialize_nav_ = std::make_shared<InitializedNav>(data_queue_);
     gps_process_ = std::make_shared<GpsProcess>(filter_);
+
+    if (camera_enable)
+    {
+        msckf_process_ = std::make_shared<camera::MsckfProcess>(filter_);
+    }
 
     Eigen::VectorXd initial_Pvariance;
     if (initialize_nav_->StartAligning(nav_info_)) //获取初始的状态
@@ -157,6 +180,7 @@ void State::ReviseState(const Eigen::VectorXd &dx)
  */
 void State::StartProcessing()
 {
+    using namespace camera;
     if (!InitializeState())
     {
         navexit();
@@ -164,6 +188,7 @@ void State::StartProcessing()
     static int state_count = filter_->GetStateSize();
     static int output_rate = config_->get<int>("result_output_rate");
     GnssData::Ptr ptr_gnss_data = nullptr;
+    CameraData::Ptr ptr_camera_data = nullptr;
     ImuData::Ptr ptr_pre_imu_data = std::make_shared<ImuData>(), ptr_curr_imu_data;
     BaseData::bPtr base_data;
     Eigen::MatrixXd PHI = Eigen::MatrixXd::Identity(state_count, state_count);
@@ -198,6 +223,10 @@ void State::StartProcessing()
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             ptr_gnss_data = nullptr;
         }
+        else if (ptr_camera_data != nullptr)
+        {
+            msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time());
+        }
         else if (ptr_curr_imu_data != nullptr)
         {
             Eigen::MatrixXd phi;
@@ -210,7 +239,7 @@ void State::StartProcessing()
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = int(nav_info_.time_.Second() * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        int idt = int((nav_info_.time_.Second() + 1e-8) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();
@@ -229,6 +258,10 @@ void State::StartProcessing()
         else if (base_data->get_type() == GNSSDATA)
         {
             ptr_gnss_data = std::dynamic_pointer_cast<GnssData>(base_data);
+        }
+        else if (base_data->get_type() == CAMERADATA)
+        {
+            ptr_camera_data = std::dynamic_pointer_cast<CameraData>(base_data);
         }
         else if (base_data->get_type() == DATAUNKOWN)
         {

@@ -62,6 +62,8 @@ struct ReprojectionError
 class MsckfProcess
 {
 public:
+    using Ptr = std::shared_ptr<MsckfProcess>;
+    
     MsckfProcess(const KalmanFilter::Ptr &filter);
     ~MsckfProcess();
 
