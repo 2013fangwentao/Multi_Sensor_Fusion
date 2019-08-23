@@ -18,7 +18,7 @@ git checkout -b dev origin/dev
 git submodule init
 git submodule update
 ```
-已经安装完glog,Eigen和opencv并且可以找到的条件下,可以直接编译程序
+已经安装完依赖库后,可以直接编译程序
 ```shell
 mkdir build && cd build 
 cmake .. && make -j3
