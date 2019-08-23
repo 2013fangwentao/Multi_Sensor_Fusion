@@ -43,3 +43,6 @@ launch.json
 *.rar
 alignmentdata
 *.png
+*.csv
+result
+sim_data

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:38:06 2019 little fang
-** Last update Wed Jul 23 上午11:02:39 2019 little fang
+** Last update Sat Aug 23 下午3:08:32 2019 little fang
 */
 
 #ifndef DATA_DATAQUE_H_
@@ -13,6 +13,7 @@
 
 #include "navgnss.h"
 #include "navimu.h"
+#include "navcamera.h"
 
 namespace mscnav
 {
@@ -20,9 +21,11 @@ class DataQueue
 {
 public:
     DataQueue(const GnssDataCollect::Ptr &ptr_gnss_data,
-              const ImuDataCollect::Ptr &ptr_imu_data)
+              const ImuDataCollect::Ptr &ptr_imu_data,
+              const CameraDataCollect::Ptr &ptr_camera_data = nullptr)
         : ptr_gnss_data_(ptr_gnss_data),
-          ptr_imu_data_(ptr_imu_data)
+          ptr_imu_data_(ptr_imu_data),
+          ptr_camera_data_(ptr_camera_data)
     {
         aint_mark_data_flags_ = 0;
         std::thread th(&DataQueue::SortData, this);
@@ -46,6 +49,7 @@ private:
 private:
     GnssDataCollect::Ptr ptr_gnss_data_;
     ImuDataCollect::Ptr ptr_imu_data_;
+    CameraDataCollect::Ptr ptr_camera_data_;
     std::thread th_sort_data_;
     std::mutex mtx_data_;
     std::deque<utiltool::BaseData::bPtr> data_queue_;

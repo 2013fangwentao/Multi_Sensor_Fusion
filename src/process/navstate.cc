@@ -148,7 +148,6 @@ void State::ReviseState(const Eigen::VectorXd &dx)
         nav_info_.gyro_scale_ += dx.segment<3>(index.gyro_scale_index_);
         nav_info_.acce_scale_ += dx.segment<3>(index.acce_scale_index_);
     }
-    //TODO 其他状态量
 }
 
 /**
