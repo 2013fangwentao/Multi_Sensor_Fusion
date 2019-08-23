@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 21 下午9:24:01 2019 little fang
-** Last update Sat Aug 23 上午10:59:11 2019 little fang
+** Last update Sat Aug 23 下午2:11:44 2019 little fang
 */
 
 #ifndef CAMERA_DATA_H_
@@ -59,7 +59,7 @@ public:
 public:
     cv::Mat image_;
 };
-using CAMERADATAPOOL = std::deque<CameraData>;
+using CAMERADATAPOOL = std::deque<CameraData::Ptr>;
 
 } // namespace camera
 } // namespace mscnav

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 22 下午7:22:24 2019 little fang
-** Last update Sat Aug 23 上午10:55:17 2019 little fang
+** Last update Sat Aug 23 上午11:13:31 2019 little fang
 */
 
 #include "camera/data.hpp"
@@ -16,7 +16,7 @@
 
 int main(int argc, char const *argv[])
 {
-    if(argc !=2)
+    if (argc != 2)
     {
         std::cout << "executable image" << std::endl;
         return 0;
@@ -31,9 +31,8 @@ int main(int argc, char const *argv[])
         camera1 = camera;
         cv::imshow("camera2", camera.image_);
         cv::waitKey(0);
-
     }
-    cv::imshow("camera", camera1.image_);
+    cv::imshow("camera3", camera1.image_);
     cv::waitKey(0);
     return 0;
 }
