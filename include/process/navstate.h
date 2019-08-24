@@ -19,8 +19,11 @@
 #include "navconfig.hpp"
 #include "camera/msckf.hpp"
 
+
 namespace mscnav
 {
+using camera::MsckfProcess;
+
 class State
 {
 public:
@@ -61,7 +64,7 @@ private:
     Eigen::MatrixXd state_q_;
 
 private:
-    camera::MsckfProcess::Ptr msckf_process_;
+    MsckfProcess::Ptr msckf_process_;
     CameraDataCollect::Ptr camera_data_ = nullptr;
     bool camera_enable;
 

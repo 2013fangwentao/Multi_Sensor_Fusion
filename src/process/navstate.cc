@@ -157,20 +157,7 @@ bool State::InitializeState()
 
 void State::ReviseState(const Eigen::VectorXd &dx)
 {
-    const StateIndex &index = filter_->GetStateIndex();
-    nav_info_.pos_ -= dx.segment<3>(index.pos_index_);
-    nav_info_.vel_ -= dx.segment<3>(index.vel_index_);
-    Eigen::Quaterniond q_update = attitude::RotationVector2Quaternion(dx.segment<3>(index.att_index_));
-    nav_info_.quat_ = q_update * nav_info_.quat_;
-    nav_info_.quat_.normalize();
-    NormalizeAttitude(nav_info_);
-    nav_info_.gyro_bias_ += dx.segment<3>(index.gyro_bias_index_);
-    nav_info_.acce_bias_ += dx.segment<3>(index.acce_bias_index_);
-    if (config_->get<int>("evaluate_imu_scale") != 0)
-    {
-        nav_info_.gyro_scale_ += dx.segment<3>(index.gyro_scale_index_);
-        nav_info_.acce_scale_ += dx.segment<3>(index.acce_scale_index_);
-    }
+    filter_->ReviseState(nav_info_, dx);
 }
 
 /**
@@ -225,7 +212,7 @@ void State::StartProcessing()
         }
         else if (ptr_camera_data != nullptr)
         {
-            msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time());
+            msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
         }
         else if (ptr_curr_imu_data != nullptr)
         {

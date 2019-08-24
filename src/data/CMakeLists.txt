@@ -3,4 +3,4 @@ project(data)
 
 aux_source_directory(. cpp_files)
 add_library(${PROJECT_NAME} SHARED ${cpp_files})
-target_link_libraries(${PROJECT_NAME} tools)
+target_link_libraries(${PROJECT_NAME} tools camera ${OpenCV_LIBS})
