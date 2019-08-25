@@ -64,7 +64,7 @@ void DataQueue::SortData()
         data_type_count++;
         if(ptr_camera_data_==nullptr)
         {
-            LOG(FATAL) << "Camera data thread error" std::endl;
+            LOG(FATAL) << "Camera data thread error" << std::endl;
         }
         if (!ptr_camera_data_->GetData(camera))
         {

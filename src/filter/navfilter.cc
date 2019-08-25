@@ -12,6 +12,7 @@
 #include "navconfig.hpp"
 #include "navlog.hpp"
 #include "navstruct.hpp"
+#include "navattitude.hpp"
 #include <iomanip>
 
 namespace mscnav
@@ -226,4 +227,24 @@ bool KalmanFilter::InsertIndex(size_t start_index, std::vector<double> init_cov)
   }
   return true;
 }
+
+void KalmanFilter::ReviseState(utiltool::NavInfo &nav_info, const Eigen::VectorXd &dx)
+{
+  using namespace utiltool;
+  ConfigInfo::Ptr config = ConfigInfo::GetInstance();
+  nav_info.pos_ -= dx.segment<3>(state_index_.pos_index_);
+  nav_info.vel_ -= dx.segment<3>(state_index_.vel_index_);
+  Eigen::Quaterniond q_update = attitude::RotationVector2Quaternion(dx.segment<3>(state_index_.att_index_));
+  nav_info.quat_ = q_update * nav_info.quat_;
+  nav_info.quat_.normalize();
+  NormalizeAttitude(nav_info);
+  nav_info.gyro_bias_ += dx.segment<3>(state_index_.gyro_bias_index_);
+  nav_info.acce_bias_ += dx.segment<3>(state_index_.acce_bias_index_);
+  if (config->get<int>("evaluate_imu_scale") != 0)
+  {
+    nav_info.gyro_scale_ += dx.segment<3>(state_index_.gyro_scale_index_);
+    nav_info.acce_scale_ += dx.segment<3>(state_index_.acce_scale_index_);
+  }
+}
+
 } // namespace mscnav

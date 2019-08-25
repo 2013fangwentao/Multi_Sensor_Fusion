@@ -10,14 +10,12 @@
 ** Last update Thu Aug 21 下午9:06:59 2019 little fang
 */
 
-#ifndef FRAME_H_
-#define FRAME_H_
+#ifndef MSCKFPROCESS_H_
+#define MSCKFPROCESS_H_
 
-#include <map>
 #include "navtime.h"
 #include "navconfig.hpp"
 #include "filter/navfilter.h"
-#include "process/navstate.h"
 #include "feature.hpp"
 #include "imageprocess.h"
 #include "Eigen/Dense"
@@ -25,11 +23,67 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <ceres/ceres.h>
+#include <map>
 
 namespace mscnav
 {
 namespace camera
 {
+
+class MsckfProcess
+{
+public:
+    using Ptr = std::shared_ptr<MsckfProcess>;
+
+    MsckfProcess(const KalmanFilter::Ptr &filter);
+    ~MsckfProcess() {}
+
+    bool ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time, utiltool::NavInfo &navinfo);
+
+private:
+    void FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo);
+    void AguementedState(const utiltool::NavInfo &navinfo);
+    void AddObservation();
+    void DetermineMeasureFeature();
+    bool CheckEnableTriangleate(const Feature &feature);
+    bool LMOptimizatePosition(Feature &feature);
+
+    bool MeasurementJacobian(const Feature &feature,
+                             Eigen::MatrixXd &H_state,
+                             Eigen::VectorXd &z_measure);
+    Eigen::VectorXd MeasurementUpdate(const Eigen::MatrixXd &H_state,
+                                      const Eigen::VectorXd &z_measure);
+
+    void ReviseCameraState(const Eigen::VectorXd &dx_camera);
+
+    void FeatureMeasureUpdate(utiltool::NavInfo &navinfo);
+
+    void RemoveCameraState();
+    void RemoveRedundantCamStates(utiltool::NavInfo &navinfo);
+
+private:
+    std::vector<cv::DMatch> matches_;
+    cv::Mat pre_frame_descriptors_;
+    cv::Mat curr_frame_descriptors_;
+    Eigen::Isometry3d cam_imu_tranformation_;
+    std::vector<cv::KeyPoint> pre_frame_keypoints_;
+    std::vector<cv::KeyPoint> curr_frame_keypoints_;
+
+    std::map<FeatureId, Feature> map_feature_set_;
+    std::map<FeatureId, Feature> map_observation_set_;
+    std::map<StateId, CameraState> map_state_set_;
+
+private:
+    bool is_first_ = true;
+    double tracking_rate_ = 1.0;
+    cv::Mat camera_mat_;
+    cv::Mat dist_coeffs_;
+    KalmanFilter::Ptr filter_;
+    utiltool::ConfigInfo::Ptr config_;
+    std::map<int, FeatureId> trainidx_feature_map_;
+    utiltool::NavTime curr_time_;
+    utiltool::NavInfo nav_info_;
+};
 
 struct ReprojectionError
 {
@@ -58,60 +112,7 @@ struct ReprojectionError
     const cv::Point2f image_uv;
     const Eigen::Isometry3d cam0_cami;
 };
-
-class MsckfProcess
-{
-public:
-    MsckfProcess(const KalmanFilter::Ptr &filter);
-    ~MsckfProcess();
-
-    bool ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time);
-
-private:
-    void FirstImageProcess(const cv::Mat &img1);
-    void AguementedState();
-    void AddObservation();
-    void DetermineMeasureFeature();
-    bool CheckEnableTriangleate(const Feature &feature);
-    bool LMOptimizatePosition(Feature &feature);
-
-    bool MeasurementJacobian(const Feature &feature,
-                             Eigen::MatrixXd &H_state,
-                             Eigen::VectorXd &z_measure);
-    Eigen::VectorXd MeasurementUpdate(const Eigen::MatrixXd &H_state,
-                                      const Eigen::VectorXd &z_measure);
-
-    void ReviseCameraState(const Eigen::VectorXd &dx_camera);
-
-    void FeatureMeasureUpdate();
-
-    void RemoveCameraState();
-    void RemoveRedundantCamStates();
-
-private:
-    std::vector<cv::DMatch> matches_;
-    cv::Mat pre_frame_descriptors_;
-    cv::Mat curr_frame_descriptors_;
-    Eigen::Isometry3d cam_imu_tranformation_;
-    std::vector<cv::KeyPoint> pre_frame_keypoints_;
-    std::vector<cv::KeyPoint> curr_frame_keypoints_;
-
-    std::map<FeatureId, Feature> map_feature_set_;
-    std::map<FeatureId, Feature> map_observation_set_;
-    std::map<StateId, CameraState> map_state_set_;
-
-private:
-    bool is_first_ = true;
-    double tracking_rate_ = 1.0;
-    cv::Mat camera_mat_;
-    cv::Mat dist_coeffs_;
-    State::Ptr state_;
-    KalmanFilter::Ptr filter_;
-    utiltool::ConfigInfo::Ptr config_;
-    std::map<int, FeatureId> trainidx_feature_map_;
-    utiltool::NavTime curr_time_;
-};
 } // namespace camera
 } // namespace mscnav
 
-#endif /* !FRAME_H_ */
+#endif /* !MSCKFPROCESS_H_ */

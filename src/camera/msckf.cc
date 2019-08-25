@@ -23,7 +23,6 @@ namespace camera
 
 MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
 {
-    state_ = State::GetState();
     config_ = utiltool::ConfigInfo::GetInstance();
     int num_features = config_->get<int>("number_points_per_image");
     int num_levels = config_->get<int>("number_pyramid_levels");
@@ -61,27 +60,26 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     cam_imu_tranformation_.translate(translation);
 }
 
-void MsckfProcess::FirstImageProcess(const cv::Mat &img1)
+void MsckfProcess::FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo)
 {
     ImageProcess::OrbFreatureExtract(img1, pre_frame_keypoints_, pre_frame_descriptors_);
-    AguementedState();
+    AguementedState(navifo);
     return;
 }
 
-bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time)
+bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time, utiltool::NavInfo &navinfo)
 {
     static int max_camera_size = config_->get<int>("max_camera_sliding_window");
-
     curr_time_ = time;
     if (is_first_)
     {
-        FirstImageProcess(img1);
+        FirstImageProcess(img1,navinfo);
         is_first_ = false;
         return false;
     }
 
     //** 增加当前camera State到系统中去.
-    AguementedState();
+    AguementedState(navinfo);
 
     //** 特征点提取
     ImageProcess::OrbFreatureExtract(img1,
@@ -101,14 +99,14 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
     DetermineMeasureFeature();
 
     //** 特征点量测更新
-    FeatureMeasureUpdate();
+    FeatureMeasureUpdate(navinfo);
 
     //** 清除已经完成全部feature点量测的camera state
     RemoveCameraState();
 
     if (map_state_set_.size() > max_camera_size)
     {
-        RemoveRedundantCamStates();
+        RemoveRedundantCamStates(navinfo);
     }
 
     return true;
@@ -122,11 +120,10 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
  * @note   
  * @retval None
  */
-void MsckfProcess::AguementedState()
+void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
 {
     //* 计算camera 的state状态，增加到CameraState map中去
     CameraState cam_state;
-    auto navinfo = state_->GetNavInfo();
     //TODO 需要验证
     cam_state.position_ = navinfo.pos_ + navinfo.rotation_ * cam_imu_tranformation_.translation();
     cam_state.quat_ = (navinfo.rotation_ * cam_imu_tranformation_.rotation());
@@ -441,7 +438,7 @@ void MsckfProcess::RemoveCameraState()
  * @note   
  * @retval None
  */
-void MsckfProcess::FeatureMeasureUpdate()
+void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
 {
     for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
     {
@@ -453,7 +450,7 @@ void MsckfProcess::FeatureMeasureUpdate()
 
             MeasurementJacobian(iter_feature->second, H_state, z_measure);
             Eigen::VectorXd dx = MeasurementUpdate(H_state, z_measure);
-            state_->ReviseState(dx.head(filter_->GetStateIndex().total_state));
+            filter_->ReviseState(navinfo, dx.head(filter_->GetStateIndex().total_state));
             ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
         }
     }
@@ -465,7 +462,7 @@ void MsckfProcess::FeatureMeasureUpdate()
  * @note   
  * @retval None
  */
-void MsckfProcess::RemoveRedundantCamStates()
+void MsckfProcess::RemoveRedundantCamStates(utiltool::NavInfo &navinfo)
 {
     std::vector<StateId> rm_cam_state_ids;
     auto key_cam_state_iter = map_state_set_.end();
@@ -533,7 +530,7 @@ void MsckfProcess::RemoveRedundantCamStates()
     }
 
     //* 更新状态
-    FeatureMeasureUpdate();
+    FeatureMeasureUpdate(navinfo);
 
     //** 移除这两个相机状态
     auto &index = filter_->GetStateIndex();

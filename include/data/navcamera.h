@@ -28,7 +28,7 @@ public:
 
 public:
     CameraDataCollect(bool logout) : aint_markofcollectdata_{-1}, logout_(logout) {}
-    virtual ~CameraDataCollect();
+    virtual ~CameraDataCollect(){}
 
 public:
     virtual bool StartReadCameraData() = 0;                //{ return false; };

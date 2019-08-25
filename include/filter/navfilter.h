@@ -20,6 +20,7 @@
 namespace mscnav
 {
 
+
 class KalmanFilter
 {
 public:
@@ -35,6 +36,7 @@ public:
   virtual bool TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd &Q, const utiltool::NavTime &time);
   virtual Eigen::VectorXd MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
                                         const utiltool::NavTime &time);
+  virtual void ReviseState(utiltool::NavInfo& nav_info, const Eigen::VectorXd &dx);
 
 public:
   Eigen::MatrixXd GetStateCov() const;
