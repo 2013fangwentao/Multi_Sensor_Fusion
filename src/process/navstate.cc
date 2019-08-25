@@ -128,16 +128,16 @@ bool State::InitializeState()
     }
     state_q_tmp = state_q_tmp.array().pow(2);
 
-    int gbtime = config_->get<int>("corr_time_of_gyro_bias") * constant_hour;
-    int abtime = config_->get<int>("corr_time_of_acce_bias") * constant_hour;
+    double gbtime = config_->get<double>("corr_time_of_gyro_bias") * constant_hour;
+    double abtime = config_->get<double>("corr_time_of_acce_bias") * constant_hour;
 
     state_q_tmp.segment<3>(index.gyro_bias_index_) *= (2.0 / gbtime);
     state_q_tmp.segment<3>(index.acce_bias_index_) *= (2.0 / abtime);
 
-    if (config_->get<int>("evaluate_imu_scale") != 0)
+    if (config_->get<double>("evaluate_imu_scale") != 0)
     {
-        int gstime = config_->get<int>("corr_time_of_gyro_scale") * constant_hour;
-        int astime = config_->get<int>("corr_time_of_acce_scale") * constant_hour;
+        double gstime = config_->get<double>("corr_time_of_gyro_scale") * constant_hour;
+        double astime = config_->get<double>("corr_time_of_acce_scale") * constant_hour;
         state_q_tmp.segment<3>(index.gyro_scale_index_) *= (2.0 / gstime);
         state_q_tmp.segment<3>(index.acce_scale_index_) *= (2.0 / astime);
     }
@@ -226,7 +226,7 @@ void State::StartProcessing()
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = int((nav_info_.time_.Second() + 1e-8) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        int idt = int((nav_info_.time_.Second() + 1e-6) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();

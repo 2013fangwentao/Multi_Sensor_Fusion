@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Sat Jul 13 下午10:53:27 2019 little fang
-** Last update Thu Jul 31 下午3:21:39 2019 little fang
+** Last update Mon Aug 25 下午9:19:08 2019 little fang
 */
 
 #include "imu/navmech.h"
@@ -117,13 +117,13 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     static int scale_of_acce = config->get<int>("evaluate_imu_scale") == 0 ? 0 : 3;
     static int scale_of_gyro = scale_of_acce;
     static int rows = 15 + scale_of_acce + scale_of_gyro, cols = rows;
-    static int corr_time_of_gyro_bias = config->get<int>("corr_time_of_gyro_bias") * constant_hour;
-    static int corr_time_of_acce_bias = config->get<int>("corr_time_of_acce_bias") * constant_hour;
-    static int corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;
+    static double corr_time_of_gyro_bias = config->get<double>("corr_time_of_gyro_bias") * constant_hour;
+    static double corr_time_of_acce_bias = config->get<double>("corr_time_of_acce_bias") * constant_hour;
+    static double corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;
     if (scale_of_gyro == 3)
-        corr_time_of_gyro_scale = config->get<int>("corr_time_of_gyro_scale") * constant_hour;
+        corr_time_of_gyro_scale = config->get<double>("corr_time_of_gyro_scale") * constant_hour;
     if (scale_of_acce == 3)
-        corr_time_of_acce_scale = config->get<int>("corr_time_of_acce_scale") * constant_hour;
+        corr_time_of_acce_scale = config->get<double>("corr_time_of_acce_scale") * constant_hour;
 
     auto &pos = nav_info.pos_;
     auto &vel = nav_info.vel_;
