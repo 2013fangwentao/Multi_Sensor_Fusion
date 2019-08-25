@@ -4,6 +4,7 @@ PROJECT(mscnav)
 # set(Ceres_DIR /opt/thirdparty/lib/cmake/Ceres)
 
 find_package(glog REQUIRED)
+find_package(gflags REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Ceres REQUIRED)
@@ -23,7 +24,9 @@ INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include
                     ${EIGEN3_INCLUDE_DIRS}
                     ${OpenCV_INCLUDE_DIRS}
                     ${GLOG_INCLUDE_DIR}
-                    ${CERES_INCLUDE_DIRS})
+                    ${CERES_INCLUDE_DIRS}
+                    ${GFLAGS_INCLUDE_DIRS})
+
 MESSAGE(STATUS "Eigen include: ${EIGEN3_INCLUDE_DIRS}")
 MESSAGE(STATUS "OpenCV include: ${OpenCV_INCLUDE_DIRS}")
 MESSAGE(STATUS "Ceres include: ${CERES_INCLUDE_DIRS}")
@@ -37,3 +40,4 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/src/camera)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/data)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/process)
 add_subdirectory(${PROJECT_SOURCE_DIR}/test)
+add_subdirectory(${PROJECT_SOURCE_DIR}/tools)
