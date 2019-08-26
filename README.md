@@ -11,7 +11,7 @@
 
 ### 使用说明
 最新版本对应为dev分支
-mscnav使用了submodules形式挂载了tools,因此clone完本程序需要更新tools
+程序使用了submodules形式挂载了tools,因此clone完本程序需要更新tools
 
 ```shell
 git checkout -b dev origin/dev
