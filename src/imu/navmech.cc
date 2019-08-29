@@ -147,7 +147,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     if (scale_of_acce == 3)
     {
         F.block<3, 3>(3, 18) = Cbe * (fb.asDiagonal());
-        F.block<3, 3>(18, 18) = Matrix3d::Identity() * (-1 / corr_time_of_acce_scale);
+        F.block<3, 3>(18, 18) = Matrix3d::Identity() * (-1.0 / corr_time_of_acce_scale);
     }
     //姿态对应的误差方程
     F.block<3, 3>(6, 6) = -1 * utiltool::skew(wiee);
@@ -155,7 +155,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     if (scale_of_gyro == 3)
     {
         F.block<3, 3>(6, 15) = -Cbe * (wb.asDiagonal());
-        F.block<3, 3>(15, 15) = Matrix3d::Identity() * (-1 / corr_time_of_gyro_scale);
+        F.block<3, 3>(15, 15) = Matrix3d::Identity() * (-1.0 / corr_time_of_gyro_scale);
     }
 
     //IMU参数
@@ -166,4 +166,14 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
 }
 } // namespace
 } // namespace navmech
+
+ImuData &Compensate(ImuData &curr_imu, const NavInfo &nav_info, const double dt)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        curr_imu.acce_(i) = (curr_imu.acce_(i) - nav_info.acce_bias_(i) * dt) * (1 - nav_info.acce_scale_(i));
+        curr_imu.gyro_(i) = (curr_imu.gyro_(i) - nav_info.gyro_bias_(i) * dt) * (1 - nav_info.gyro_scale_(i));
+    }
+    return curr_imu;
+}
 } // namespace mscnav

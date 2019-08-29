@@ -86,7 +86,7 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
   {
     debug_log_file_ << std::endl
                     << std::fixed << time.Time2String() << std::endl;
-    debug_log_file_ << std::setprecision(8) << "state cov" << std::endl
+    debug_log_file_ << std::setprecision(18) << "state cov" << std::endl
                     << state_cov_ << std::endl
                     << "PHI " << std::endl
                     << Phi << std::endl

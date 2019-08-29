@@ -127,7 +127,6 @@ bool State::InitializeState()
             tmp_value[2] * constant_ppm;
     }
     state_q_tmp = state_q_tmp.array().pow(2);
-
     double gbtime = config_->get<double>("corr_time_of_gyro_bias") * constant_hour;
     double abtime = config_->get<double>("corr_time_of_acce_bias") * constant_hour;
 
@@ -209,6 +208,7 @@ void State::StartProcessing()
             ReviseState(dx);
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             ptr_gnss_data = nullptr;
+            latest_update_time_ += dt;
         }
         else if (ptr_camera_data != nullptr)
         {
@@ -217,6 +217,8 @@ void State::StartProcessing()
         else if (ptr_curr_imu_data != nullptr)
         {
             Eigen::MatrixXd phi;
+            double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
+            (*ptr_curr_imu_data) = Compensate(*ptr_curr_imu_data, nav_info_, dt);
             nav_info_ = navmech::MechanicalArrangement(*ptr_pre_imu_data, *ptr_curr_imu_data, nav_info_, phi);
             // double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
             // Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
@@ -232,7 +234,11 @@ void State::StartProcessing()
             double second_of_week = nav_info_.time_.SecondOfWeek();
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
-            ofs_result_output_ << InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time) << std::endl;
+            auto output_nav = InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time);
+            output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
+            auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
+            output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
+            ofs_result_output_ << output_nav << std::endl;
             LOG(INFO) << nav_info_.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
