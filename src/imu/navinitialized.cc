@@ -220,6 +220,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
             PVariance.segment<3>(index.att_index_) << 5.0_deg, 5.0_deg, 5.0_deg;
         if (aligned_mode_ == STATIONARY_AND_MOTION)
             PVariance.segment<3>(index.att_index_) << 2.0_deg, 2.0_deg, 5.0_deg;
+        LOG(INFO) << "aligned_mode is " << aligned_mode_ << std::endl;
         LOG(INFO) << "The attitude initialized variance setted by default!!! default!!!" << std::endl;
     }
     auto gyro_bias_std = config->get_array<double>("gyro_bias_std");

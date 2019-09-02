@@ -13,6 +13,18 @@ using namespace utiltool;
 using Eigen::Vector3d;
 using std::chrono::milliseconds;
 
+void GetStartAndEndTime(utiltool::NavTime &start_time, utiltool::NavTime &end_time)
+{
+	ConfigInfo::Ptr config = ConfigInfo::GetInstance();
+	std::vector<int> utime = config->get_array<int>("process_date");
+	double start_second = config->get<double>("start_time");
+	double end_second = config->get<double>("end_time");
+	NavTime start_time_tmp(utime[0], utime[1], utime[2], 0, 0, 0.0);
+	NavTime end_time_tmp(utime[0], utime[1], utime[2], 0, 0, 0.0);
+	start_time = start_time_tmp + int(start_second) % NavTime::MAXSECONDOFDAY + start_second - int(start_second);
+	end_time = end_time_tmp + int(end_second) % NavTime::MAXSECONDOFDAY + end_second - int(end_second);
+}
+
 GnssDataCollect::~GnssDataCollect()
 {
 	if (logout_)
@@ -69,12 +81,12 @@ bool FileGnssData::GetData(GnssData::Ptr &gd)
 	{
 		while (gd_datapool_.size() == 0)
 		{
-			std::this_thread::sleep_for(milliseconds(50));
 			LOG_EVERY_N(INFO, 200) << "GnssData thread sleep 10s" << std::endl;
 			if (aint_markofcollectdata_ == 1)
 			{
 				return false;
 			}
+			std::this_thread::sleep_for(milliseconds(50));
 		}
 		std::unique_lock<std::mutex> lck(mtx_collectdata_);
 		gd = gd_datapool_.front();
@@ -90,14 +102,8 @@ bool FileGnssData::GetData(GnssData::Ptr &gd)
 void FileGnssData::ReadingData()
 {
 	// 获取计算的起止时间
-	ConfigInfo::Ptr config = ConfigInfo::GetInstance();
-	std::vector<int> utime = config->get_array<int>("process_date");
-	int start_second = config->get<int>("start_time");
-	int end_second = config->get<int>("end_time");
-	NavTime start_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-	NavTime end_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-	start_time += start_second % NavTime::MAXSECONDOFDAY;
-	end_time += end_second % NavTime::MAXSECONDOFDAY;
+	utiltool::NavTime end_time, start_time;
+	GetStartAndEndTime(start_time, end_time);
 	if (end_time <= start_time)
 	{
 		LOG(INFO) << "start time is " << start_time << std::endl;
@@ -142,4 +148,5 @@ void FileGnssData::ReadingData()
 	aint_markofcollectdata_ = 1;
 	ifs_file_.close();
 }
+
 } // namespace mscnav

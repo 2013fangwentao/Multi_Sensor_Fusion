@@ -9,11 +9,12 @@
 */
 
 #include "data/navcamera.h"
-#include "navconfig.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <chrono>
+#include "navconfig.hpp"
+#include "data/navgnss.h"
 
 using std::chrono::milliseconds;
 
@@ -87,16 +88,11 @@ bool FileCameraData::StartReadCameraData()
  */
 void FileCameraData::ReadingData()
 {
-    utiltool::ConfigInfo::Ptr config = utiltool::ConfigInfo::GetInstance();
     std::string image_path, tmp_line;
     std::getline(ifs_camera_data_config_, image_path);
-    std::vector<int> utime = config->get_array<int>("process_date");
-    int start_second = config->get<int>("start_time");
-    int end_second = config->get<int>("end_time");
-    utiltool::NavTime start_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-    utiltool::NavTime end_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-    start_time += start_second % utiltool::NavTime::MAXSECONDOFDAY;
-    end_time += end_second % utiltool::NavTime::MAXSECONDOFDAY;
+    utiltool::NavTime end_time, start_time;
+    GetStartAndEndTime(start_time, end_time);
+
     if (end_time <= start_time)
     {
         LOG(INFO) << "start time is " << start_time << std::endl;

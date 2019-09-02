@@ -117,6 +117,7 @@ void DataQueue::SortData()
                     camera = nullptr;
                     data_type_count--;
                 }
+                break;
             default: //bak for other data
                 break;
             }

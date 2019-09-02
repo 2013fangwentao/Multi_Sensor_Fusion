@@ -29,6 +29,8 @@ const int MAX_SIZE_GNSSPOOL(500);
 using utiltool::GnssData;
 using utiltool::GNSSDATAPOOL;
 
+void GetStartAndEndTime(utiltool::NavTime &start_time, utiltool::NavTime &end_time);
+
 /**
  * @brief  base class for gps data,bak for realtime Gnss data collect
  * @note   
@@ -44,8 +46,8 @@ public:
 	virtual ~GnssDataCollect();
 
 public:
-	virtual bool StartReadGnssData() = 0;		   //{ return false; };
-	virtual bool GetData(GnssData::Ptr &gd) = 0;   //{ return false; }
+	virtual bool StartReadGnssData() = 0;		 //{ return false; };
+	virtual bool GetData(GnssData::Ptr &gd) = 0; //{ return false; }
 
 protected:
 	GNSSDATAPOOL gd_datapool_;
