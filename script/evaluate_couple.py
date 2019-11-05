@@ -166,10 +166,10 @@ def compare(result_file,
     att_data = result_data[data_index, ATT_INDEX:ATT_INDEX + 3]
     gyro_bias_data = result_data[data_index, GYRO_BIAS_INDEX:GYRO_BIAS_INDEX +
                                  3]
-    gyro_scale_data = result_data[data_index, ACCE_BIAS_INDEX:ACCE_BIAS_INDEX +
+    gyro_scale_data = result_data[data_index, GYRO_SCALE_INDEX:GYRO_SCALE_INDEX +
                                   3]
-    acce_bias_data = result_data[data_index, GYRO_SCALE_INDEX:
-                                 GYRO_SCALE_INDEX + 3]
+    acce_bias_data = result_data[data_index, ACCE_BIAS_INDEX:ACCE_BIAS_INDEX +
+                                 3]
     acce_scale_data = result_data[data_index, ACCE_SCALE_INDEX:
                                   ACCE_SCALE_INDEX + 3]
 
@@ -186,7 +186,7 @@ def compare(result_file,
     residual_att = np.full(att_data.shape, np.nan)
     residual_time = np.full(ref_time.shape, np.nan)
     while (data_i < np.size(data_time) and ref_i < np.size(ref_time)):
-        if (np.abs(ref_time[ref_i] - data_time[data_i]) < 5.5e-2):
+        if (np.abs(ref_time[ref_i] - data_time[data_i]) < 2e-3):
             residual_pos[residual_i, ...] = ref_pos_data[
                 ref_i, ...] - pos_data[data_i, ...]
             residual_vel[residual_i, ...] = ref_vel_data[

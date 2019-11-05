@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Thu Aug 21 下午8:54:58 2019 little fang
+** Last update Wed Nov 5 下午2:48:06 2019 little fang
 */
 
 #include "navattitude.hpp"
@@ -13,6 +13,7 @@
 #include "camera/imageprocess.h"
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 using namespace utiltool::attitude;
 
@@ -85,6 +86,8 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
     ImageProcess::OrbFreatureExtract(img1,
                                      curr_frame_keypoints_,
                                      curr_frame_descriptors_);
+    cv::imshow("current image", img1);
+    cv::waitKey(1);
 
     //** 与前一帧图像匹配特征点
     ImageProcess::FreatureMatch(curr_frame_keypoints_,

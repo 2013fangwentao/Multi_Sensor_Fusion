@@ -57,5 +57,6 @@
         "cfenv": "cpp",
         "regex": "cpp",
         "csignal": "cpp"
-    }
+    },
+    "python.pythonPath": "/usr/bin/python3"
 }

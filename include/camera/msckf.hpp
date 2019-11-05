@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Thu Aug 21 下午9:06:59 2019 little fang
+** Last update Wed Nov 5 下午2:42:11 2019 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -65,7 +65,7 @@ private:
     std::vector<cv::DMatch> matches_;
     cv::Mat pre_frame_descriptors_;
     cv::Mat curr_frame_descriptors_;
-    Eigen::Isometry3d cam_imu_tranformation_;
+    Eigen::Isometry3d cam_imu_tranformation_;       //* coordinate from imu to camera
     std::vector<cv::KeyPoint> pre_frame_keypoints_;
     std::vector<cv::KeyPoint> curr_frame_keypoints_;
 

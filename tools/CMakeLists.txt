@@ -16,3 +16,6 @@ target_link_libraries(ImuTran tools ${GFLAGS_LIBRARIES})
 
 add_executable(PreprocessKitti ./PreprocessKittiData.cc)
 target_link_libraries(PreprocessKitti tools)
+
+add_executable(ImageUndistort ./ImageUndistort.cc)
+target_link_libraries(ImageUndistort tools ${OpenCV_LIBS} ${GLOG_LIBRARY})

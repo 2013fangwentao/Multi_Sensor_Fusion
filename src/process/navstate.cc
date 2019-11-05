@@ -207,8 +207,10 @@ void State::StartProcessing()
             gps_process_->processing(ptr_gnss_data, nav_info_, dx);
             ReviseState(dx);
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
+            latest_update_time_ = ptr_gnss_data->get_time();
             ptr_gnss_data = nullptr;
-            latest_update_time_ += dt;
+            // ofs_result_output_ << nav_info_ << std::endl;
+            // LOG(INFO) << nav_info_.time_ << std::endl;
         }
         else if (ptr_camera_data != nullptr)
         {
@@ -235,11 +237,11 @@ void State::StartProcessing()
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
             auto output_nav = InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time);
-            output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
-            auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
-            output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
+            // output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
+            // auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
+            // output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
             ofs_result_output_ << output_nav << std::endl;
-            LOG(INFO) << nav_info_.time_ << std::endl;
+            LOG(INFO) << output_nav.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */

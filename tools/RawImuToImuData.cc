@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Mon Aug 26 下午2:22:04 2019 little fang
-** Last update Tue Aug 26 下午2:34:39 2019 little fang
+** Last update Tue Nov 4 下午7:57:33 2019 little fang
 */
 
 #include "navtime.h"
@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     while (!feof(fp_imu))
     {
         int n = fread(&imu, sizeof(IMU_DATA), 1, fp_imu);
-        NavTime time(1984, imu.time);
+        NavTime time(2057, imu.time);
         ImuData imu_data(time);
         imu_data.gyro_ = Eigen::Vector3d{imu.gyro[0], imu.gyro[1], imu.gyro[2]};
         imu_data.acce_ = Eigen::Vector3d{imu.acce[0], imu.acce[1], imu.acce[2]};
