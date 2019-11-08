@@ -5,15 +5,16 @@
 ** Login   <fangwentao>
 **
 ** Started on  Fri Aug 23 下午12:03:22 2019 little fang
-** Last update Sat Aug 23 下午2:57:39 2019 little fang
+** Last update Fri Nov 7 上午11:09:55 2019 little fang
 */
 
 #include "data/navcamera.h"
-#include "navconfig.hpp"
 #include <opencv2/core/core.hpp>
 #include <opencv2/imgcodecs/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <chrono>
+#include "navconfig.hpp"
+#include "data/navgnss.h"
 
 using std::chrono::milliseconds;
 
@@ -87,16 +88,11 @@ bool FileCameraData::StartReadCameraData()
  */
 void FileCameraData::ReadingData()
 {
-    utiltool::ConfigInfo::Ptr config = utiltool::ConfigInfo::GetInstance();
     std::string image_path, tmp_line;
     std::getline(ifs_camera_data_config_, image_path);
-    std::vector<int> utime = config->get_array<int>("process_date");
-    int start_second = config->get<int>("start_time");
-    int end_second = config->get<int>("end_time");
-    utiltool::NavTime start_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-    utiltool::NavTime end_time(utime[0], utime[1], utime[2], 0, 0, 0.0);
-    start_time += start_second % utiltool::NavTime::MAXSECONDOFDAY;
-    end_time += end_second % utiltool::NavTime::MAXSECONDOFDAY;
+    utiltool::NavTime end_time, start_time;
+    GetStartAndEndTime(start_time, end_time);
+
     if (end_time <= start_time)
     {
         LOG(INFO) << "start time is " << start_time << std::endl;
@@ -118,7 +114,7 @@ void FileCameraData::ReadingData()
             std::unique_lock<std::mutex> lck(mtx_collectdata_);
             cd_datapool_.emplace_back(image);
         }
-        while (cd_datapool_.size() > MAX_SIZE_CAMERAPOOL)
+        while (cd_datapool_.size() > 20*MAX_SIZE_CAMERAPOOL)
         {
             std::this_thread::sleep_for(milliseconds(200));
         }

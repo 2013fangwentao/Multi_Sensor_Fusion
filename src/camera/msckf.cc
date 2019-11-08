@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Thu Aug 21 下午8:54:58 2019 little fang
+** Last update Sat Nov 8 下午8:46:31 2019 little fang
 */
 
 #include "navattitude.hpp"
@@ -13,6 +13,7 @@
 #include "camera/imageprocess.h"
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
+#include <opencv2/highgui/highgui.hpp>
 
 using namespace utiltool::attitude;
 
@@ -55,9 +56,11 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
         cam_imu_rotation[6], cam_imu_rotation[7], cam_imu_rotation[8];
 
     // TODO 需要核对,需要确定一般给定的cam和imu方向余弦矩阵由哪个旋转至哪个
+    cam_imu_tranformation_ = {Eigen::Isometry3d::Identity()};
     translation << cam_imu_translation[0], cam_imu_translation[1], cam_imu_translation[2];
     cam_imu_tranformation_.rotate(rotation);
-    cam_imu_tranformation_.translate(translation);
+    cam_imu_tranformation_.pretranslate(translation);
+    // cam_imu_tranformation_.translate(translation);
 }
 
 void MsckfProcess::FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo)
@@ -73,25 +76,35 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
     curr_time_ = time;
     if (is_first_)
     {
-        FirstImageProcess(img1,navinfo);
+        pre_img = img1.clone();
+        FirstImageProcess(img1, navinfo);
         is_first_ = false;
         return false;
     }
-
-    //** 增加当前camera State到系统中去.
-    AguementedState(navinfo);
 
     //** 特征点提取
     ImageProcess::OrbFreatureExtract(img1,
                                      curr_frame_keypoints_,
                                      curr_frame_descriptors_);
+    cv::Mat key_image;
+    cv::drawKeypoints(img1, curr_frame_keypoints_, key_image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DEFAULT);
+    cv::imshow("key points", key_image);
+    cv::waitKey(1);
 
     //** 与前一帧图像匹配特征点
-    ImageProcess::FreatureMatch(curr_frame_keypoints_,
-                                curr_frame_descriptors_,
-                                pre_frame_keypoints_,
+    ImageProcess::FreatureMatch(pre_frame_keypoints_,
                                 pre_frame_descriptors_,
-                                matches_);
+                                curr_frame_keypoints_,
+                                curr_frame_descriptors_,
+                                matches_, 20.0);
+    // cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
+    // cv::imshow("匹配数据", key_image);
+    // cv::waitKey(0);
+    // pre_img = img1.clone();
+
+    //** 增加当前camera State到系统中去.
+    AguementedState(navinfo);
+
     //** 匹配的特征加入观测序列中
     AddObservation();
 
@@ -108,7 +121,6 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
     {
         RemoveRedundantCamStates(navinfo);
     }
-
     return true;
 }
 
@@ -128,11 +140,12 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
     cam_state.position_ = navinfo.pos_ + navinfo.rotation_ * cam_imu_tranformation_.translation();
     cam_state.quat_ = (navinfo.rotation_ * cam_imu_tranformation_.rotation());
     cam_state.time_ = navinfo.time_;
-    map_state_set_[cam_state.state_id_] = cam_state;
+    map_state_set_.insert(std::make_pair(cam_state.state_id_, cam_state));
+    // map_state_set_[cam_state.state_id_] = cam_state;//!不要采用这种方式赋值，id号会不对
 
     //* 增广对应状态的方差信息到滤波的方程协方差矩阵中
     utiltool::StateIndex &index = filter_->GetStateIndex();
-    int state_count = index.total_state + index.camera_state_index.size();
+    int state_count = index.total_state + index.camera_state_index.size() * 6;
     Eigen::MatrixXd J = Eigen::MatrixXd::Zero(state_count + 6, state_count);
     J.block(0, 0, state_count, state_count) = Eigen::MatrixXd::Identity(state_count, state_count);
 
@@ -148,6 +161,7 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
 
     int the_latest_count_state = (index.total_state) + index.camera_state_index.size() * 6;
     index.camera_state_index[cam_state.state_id_] = the_latest_count_state;
+    return;
 }
 
 /**
@@ -155,6 +169,7 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
  *         1.如果当前匹配的特征点在上一帧中存在直接加入观测值到其observation中            
  *         2.如果是全新的特征点，则构建新的特征点，添加前后两帧图像的观测数据，并增加到feature的序列中去
  * @note   
+ *          2019.11.07 第一次调试TODO内容:第一个camera状态观测不对
  * @retval None
  */
 void MsckfProcess::AddObservation()
@@ -176,14 +191,17 @@ void MsckfProcess::AddObservation()
             Feature feature;
             keypoint_distorted.clear();
             keypoint_undistorted.clear();
-            keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt);
-            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+            keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt); //TODO 核实这两个trainIdx 2019.11.07
+            keypoint_distorted.push_back(curr_frame_keypoints_[member.queryIdx].pt);
+            // keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
             feature.observation_uv_[pre_camera_state->first] = keypoint_undistorted[0];
             feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
-            map_feature_set_[feature.feature_id_] = feature;
+            map_feature_set_.insert(std::make_pair(feature.feature_id_, feature));
+            // map_feature_set_[feature.feature_id_] = feature;
             curr_trainidx_feature_map_[member.queryIdx] = feature.feature_id_;
             curr_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
+            pre_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
         }
         else // 已经存在的特征点，直接在观测序列中加入当前观测
         {
@@ -193,12 +211,12 @@ void MsckfProcess::AddObservation()
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
             map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
             curr_trainidx_feature_map_[member.queryIdx] = iter_feature->second;
-            curr_camera_state->second.feature_id_set_.push_back(iter_feature->first);
+            curr_camera_state->second.feature_id_set_.push_back(iter_feature->second);
             track_num++;
         }
     }
     trainidx_feature_map_ = curr_trainidx_feature_map_;
-    pre_frame_descriptors_ = curr_frame_descriptors_;
+    pre_frame_descriptors_ = curr_frame_descriptors_.clone();
     pre_frame_keypoints_ = curr_frame_keypoints_;
     tracking_rate_ = (double)(track_num) / (double)(curr_camera_state->second.feature_id_set_.size());
 }
@@ -271,36 +289,87 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
         return false;
 }
 
+/**
+ * @brief  三角化求解近似位置，参考系为第一帧相片的相机坐标系
+ * @note   
+ * @param  &feature: 
+ * @param  &cam0_trans: 
+ * @param  position_cam0[3]: 输出
+ * @retval 
+ */
+bool MsckfProcess::TriangulatePoint(const Feature &feature,
+                                    const Eigen::Isometry3d &cam0_trans,
+                                    double position_cam0[3])
+{
+    const StateId &latest_id = feature.observation_uv_.rbegin()->first;
+
+    Eigen::Isometry3d cami_trans{Eigen::Isometry3d::Identity()};
+    cami_trans.rotate(map_state_set_[latest_id].quat_.toRotationMatrix());
+    cami_trans.pretranslate(map_state_set_[latest_id].position_);
+    Eigen::Isometry3d cam0_cami = (cami_trans.inverse() * cam0_trans).inverse();
+
+    const Eigen::Matrix4d mat_tmp = cam0_cami.matrix();
+    cv::Mat T2 = (cv::Mat_<double>(3, 4) << mat_tmp(0, 0), mat_tmp(0, 1), mat_tmp(0, 2), mat_tmp(0, 3),
+                  mat_tmp(1, 0), mat_tmp(1, 1), mat_tmp(1, 2), mat_tmp(1, 3),
+                  mat_tmp(2, 0), mat_tmp(2, 1), mat_tmp(2, 2), mat_tmp(2, 3));
+
+    cv::Mat T1 = (cv::Mat_<double>(3, 4) << 1, 0, 0, 0,
+                  0, 1, 0, 0, 0, 0, 1, 0);
+    cv::Mat pts_4d;
+    std::vector<cv::Point2f> pts1, pts2;
+    pts1.emplace_back(feature.observation_uv_.begin()->second);
+    pts2.emplace_back(feature.observation_uv_.rbegin()->second);
+    cv::triangulatePoints(T1, T2, pts1, pts2, pts_4d);
+    cv::Mat x = pts_4d.col(0);
+    x /= x.at<float>(3, 0);
+    position_cam0[0] = x.at<float>(0, 0);
+    position_cam0[1] = x.at<float>(1, 0);
+    position_cam0[2] = x.at<float>(2, 0);
+    return true;
+}
+
+/**
+ * @brief  LM优化求解特征点在世界坐标系下的位置
+ * @note   
+ * @param  &feature: 待求的特征点
+ * @retval 
+ */
 bool MsckfProcess::LMOptimizatePosition(Feature &feature)
 {
     //TODO ceres初步撰写，需要测试
     if (feature.is_initialized_)
         return true;
     ceres::Problem problem;
-    double position_world[3] = {0.0, 0.0, 0.0};
-    Eigen::Isometry3d cam0_tranformation;
+    Eigen::Isometry3d cam0_tranformation{Eigen::Isometry3d::Identity()};
     cam0_tranformation.rotate(map_state_set_[feature.observation_uv_.begin()->first].quat_.toRotationMatrix());
-    cam0_tranformation.translate(map_state_set_[feature.observation_uv_.begin()->first].position_);
-
+    cam0_tranformation.pretranslate(map_state_set_[feature.observation_uv_.begin()->first].position_);
+    double position_world[3] = {1.0, 1.0, 1.0};
+    TriangulatePoint(feature, cam0_tranformation, position_world);
+    if (position_world[2] < -1.0 || position_world[2] > 50.0)
+    {
+        return false;
+    }
     for (auto &observation : feature.observation_uv_)
     {
         auto &camera_id = observation.first;
-        auto &camera_state = map_state_set_[camera_id];
+        const auto &camera_state = map_state_set_[camera_id];//! FIXME 有问题
         cv::Point2f &observation_point = observation.second;
-        Eigen::Isometry3d cam0_cami;
-        Eigen::Matrix3d cam0_cami_rotate = ((camera_state.quat_.conjugate()).toRotationMatrix() * cam0_tranformation.rotation()).transpose();
-        Eigen::Vector3d cam0_cami_translate = cam0_tranformation.rotation().transpose() * (camera_state.position_ - cam0_tranformation.translation());
-        cam0_cami.rotate(cam0_cami_rotate);
-        cam0_cami.translate(cam0_cami_translate);
+        Eigen::Isometry3d cami_tranformation{Eigen::Isometry3d::Identity()};
+        cami_tranformation.rotate(camera_state.quat_.toRotationMatrix());
+        cami_tranformation.pretranslate(camera_state.position_);
+        Eigen::Isometry3d cam0_cami = (cami_tranformation.inverse() * cam0_tranformation).inverse();
         ceres::CostFunction *cost_function = ReprojectionError::Create(observation_point, cam0_cami);
         problem.AddResidualBlock(cost_function, NULL, position_world);
     }
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
-    options.minimizer_progress_to_stdout = true;
     ceres::Solver::Summary summary;
+    // options.minimizer_progress_to_stdout = true;
     ceres::Solve(options, &problem, &summary);
+
     feature.position_world_ << position_world[0], position_world[1], position_world[2];
+    if (feature.position_world_.norm() > 50)
+        return false;
     feature.position_world_ = cam0_tranformation * feature.position_world_;
     return true;
 }
@@ -412,24 +481,33 @@ void MsckfProcess::RemoveCameraState()
     auto &index = filter_->GetStateIndex();
     for (auto iter_camera = map_state_set_.begin(); iter_camera != map_state_set_.end();)
     {
-        auto camera_state = iter_camera->second;
+        bool find_feature = false;
+        auto &camera_state = iter_camera->second;
         for (auto f_id : camera_state.feature_id_set_)
         {
             if (map_feature_set_.find(f_id) != map_feature_set_.end())
             {
-                iter_camera++;
-                continue;
+                find_feature = true;
+                break;
             }
         }
-        auto iter_index_camera = index.camera_state_index.find(iter_camera->first);
-        assert(iter_index_camera != index.camera_state_index.end());
-        filter_->EliminateIndex(iter_index_camera->second, 6);
-        iter_index_camera = index.camera_state_index.erase(iter_index_camera);
-        for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
+        if (find_feature)
         {
-            iter_index_camera->second -= 6;
+            iter_camera++;
+            continue;
         }
-        iter_camera = map_state_set_.erase(iter_camera);
+        else
+        {
+            auto iter_index_camera = index.camera_state_index.find(iter_camera->first);
+            assert(iter_index_camera != index.camera_state_index.end());
+            filter_->EliminateIndex(iter_index_camera->second, 6);
+            iter_index_camera = index.camera_state_index.erase(iter_index_camera);
+            for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
+            {
+                iter_index_camera->second -= 6;
+            }
+            iter_camera = map_state_set_.erase(iter_camera);
+        }
     }
 }
 
@@ -440,9 +518,11 @@ void MsckfProcess::RemoveCameraState()
  */
 void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
 {
-    for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
+    for (auto iter_feature = map_observation_set_.begin(); iter_feature != map_observation_set_.end(); iter_feature++)
+    //for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
     {
-        if (LMOptimizatePosition(iter_feature->second))
+        bool temp = LMOptimizatePosition(iter_feature->second);
+        if (temp)
         {
             Eigen::MatrixXd H_state;
             Eigen::VectorXd z_measure;
@@ -454,7 +534,7 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
             ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
         }
     }
-    map_feature_set_.clear();
+    map_observation_set_.clear();
 }
 
 /**

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 21 下午9:36:31 2019 little fang
-** Last update Sat Aug 23 下午2:52:59 2019 little fang
+** Last update Fri Nov 7 上午11:09:49 2019 little fang
 */
 
 #ifndef DATA_CAMERA_H_
@@ -19,7 +19,7 @@
 
 namespace mscnav
 {
-const int MAX_SIZE_CAMERAPOOL = 100;
+const int MAX_SIZE_CAMERAPOOL = 50;
 
 class CameraDataCollect
 {

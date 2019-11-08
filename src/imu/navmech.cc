@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Sat Jul 13 下午10:53:27 2019 little fang
-** Last update Thu Jul 31 下午3:21:39 2019 little fang
+** Last update Mon Aug 25 下午9:19:08 2019 little fang
 */
 
 #include "imu/navmech.h"
@@ -117,13 +117,13 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     static int scale_of_acce = config->get<int>("evaluate_imu_scale") == 0 ? 0 : 3;
     static int scale_of_gyro = scale_of_acce;
     static int rows = 15 + scale_of_acce + scale_of_gyro, cols = rows;
-    static int corr_time_of_gyro_bias = config->get<int>("corr_time_of_gyro_bias") * constant_hour;
-    static int corr_time_of_acce_bias = config->get<int>("corr_time_of_acce_bias") * constant_hour;
-    static int corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;
+    static double corr_time_of_gyro_bias = config->get<double>("corr_time_of_gyro_bias") * constant_hour;
+    static double corr_time_of_acce_bias = config->get<double>("corr_time_of_acce_bias") * constant_hour;
+    static double corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;
     if (scale_of_gyro == 3)
-        corr_time_of_gyro_scale = config->get<int>("corr_time_of_gyro_scale") * constant_hour;
+        corr_time_of_gyro_scale = config->get<double>("corr_time_of_gyro_scale") * constant_hour;
     if (scale_of_acce == 3)
-        corr_time_of_acce_scale = config->get<int>("corr_time_of_acce_scale") * constant_hour;
+        corr_time_of_acce_scale = config->get<double>("corr_time_of_acce_scale") * constant_hour;
 
     auto &pos = nav_info.pos_;
     auto &vel = nav_info.vel_;
@@ -147,7 +147,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     if (scale_of_acce == 3)
     {
         F.block<3, 3>(3, 18) = Cbe * (fb.asDiagonal());
-        F.block<3, 3>(18, 18) = Matrix3d::Identity() * (-1 / corr_time_of_acce_scale);
+        F.block<3, 3>(18, 18) = Matrix3d::Identity() * (-1.0 / corr_time_of_acce_scale);
     }
     //姿态对应的误差方程
     F.block<3, 3>(6, 6) = -1 * utiltool::skew(wiee);
@@ -155,7 +155,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     if (scale_of_gyro == 3)
     {
         F.block<3, 3>(6, 15) = -Cbe * (wb.asDiagonal());
-        F.block<3, 3>(15, 15) = Matrix3d::Identity() * (-1 / corr_time_of_gyro_scale);
+        F.block<3, 3>(15, 15) = Matrix3d::Identity() * (-1.0 / corr_time_of_gyro_scale);
     }
 
     //IMU参数
@@ -166,4 +166,14 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
 }
 } // namespace
 } // namespace navmech
+
+ImuData &Compensate(ImuData &curr_imu, const NavInfo &nav_info, const double dt)
+{
+    for (int i = 0; i < 3; i++)
+    {
+        curr_imu.acce_(i) = (curr_imu.acce_(i) - nav_info.acce_bias_(i) * dt) * (1 - nav_info.acce_scale_(i));
+        curr_imu.gyro_(i) = (curr_imu.gyro_(i) - nav_info.gyro_bias_(i) * dt) * (1 - nav_info.gyro_scale_(i));
+    }
+    return curr_imu;
+}
 } // namespace mscnav

@@ -127,17 +127,16 @@ bool State::InitializeState()
             tmp_value[2] * constant_ppm;
     }
     state_q_tmp = state_q_tmp.array().pow(2);
-
-    int gbtime = config_->get<int>("corr_time_of_gyro_bias") * constant_hour;
-    int abtime = config_->get<int>("corr_time_of_acce_bias") * constant_hour;
+    double gbtime = config_->get<double>("corr_time_of_gyro_bias") * constant_hour;
+    double abtime = config_->get<double>("corr_time_of_acce_bias") * constant_hour;
 
     state_q_tmp.segment<3>(index.gyro_bias_index_) *= (2.0 / gbtime);
     state_q_tmp.segment<3>(index.acce_bias_index_) *= (2.0 / abtime);
 
-    if (config_->get<int>("evaluate_imu_scale") != 0)
+    if (config_->get<double>("evaluate_imu_scale") != 0)
     {
-        int gstime = config_->get<int>("corr_time_of_gyro_scale") * constant_hour;
-        int astime = config_->get<int>("corr_time_of_acce_scale") * constant_hour;
+        double gstime = config_->get<double>("corr_time_of_gyro_scale") * constant_hour;
+        double astime = config_->get<double>("corr_time_of_acce_scale") * constant_hour;
         state_q_tmp.segment<3>(index.gyro_scale_index_) *= (2.0 / gstime);
         state_q_tmp.segment<3>(index.acce_scale_index_) *= (2.0 / astime);
     }
@@ -203,37 +202,47 @@ void State::StartProcessing()
         if (ptr_gnss_data != nullptr)
         {
             double dt = ptr_gnss_data->get_time() - latest_update_time_;
-            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
-            filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
+            // Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
+            // filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
             gps_process_->processing(ptr_gnss_data, nav_info_, dx);
             ReviseState(dx);
-            PHI = Eigen::MatrixXd::Identity(state_count, state_count);
+            // PHI = Eigen::MatrixXd::Identity(state_count, state_count);
+            latest_update_time_ = ptr_gnss_data->get_time();
             ptr_gnss_data = nullptr;
+            // ofs_result_output_ << nav_info_ << std::endl;
+            // LOG(INFO) << nav_info_.time_ << std::endl;
         }
         else if (ptr_camera_data != nullptr)
         {
             msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
+            ptr_camera_data = nullptr;
         }
         else if (ptr_curr_imu_data != nullptr)
         {
             Eigen::MatrixXd phi;
+            double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
+            (*ptr_curr_imu_data) = Compensate(*ptr_curr_imu_data, nav_info_, dt);
             nav_info_ = navmech::MechanicalArrangement(*ptr_pre_imu_data, *ptr_curr_imu_data, nav_info_, phi);
             // double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
-            // Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
-            // filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
+            Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
+            filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
             /*考虑为一步预测 */
-            PHI *= phi;
+            // PHI *= phi;
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = int((nav_info_.time_.Second() + 1e-8) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        int idt = int((nav_info_.time_.Second() + 1e-6) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
-            ofs_result_output_ << InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time) << std::endl;
-            LOG(INFO) << nav_info_.time_ << std::endl;
+            auto output_nav = InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time);
+            // output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
+            // auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
+            // output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
+            ofs_result_output_ << output_nav << std::endl;
+            LOG(INFO) << output_nav.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */

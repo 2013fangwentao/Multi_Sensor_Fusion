@@ -19,6 +19,8 @@ namespace mscnav
 using utiltool::ImuData;
 using utiltool::NavInfo;
 
+ImuData &Compensate(ImuData &curr_imu, const NavInfo &nav_info, const double dt);
+
 namespace navmech
 {
 

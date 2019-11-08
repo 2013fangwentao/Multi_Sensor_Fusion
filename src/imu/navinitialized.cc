@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:14:23 2019 little fang
-** Last update Thu Aug 7 下午3:02:13 2019 little fang
+** Last update Tue Aug 26 下午3:03:59 2019 little fang
 */
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
@@ -169,6 +169,10 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
                     return true; //面向车载设备,且设备坐标系与车体系差异不显著
                 }
             }
+            else if (data->get_type() == DATAUNKOWN)
+            {
+                LOG(FATAL) << "初始对准失败" << std::endl;
+            }
         }
     }
     return false;
@@ -216,6 +220,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
             PVariance.segment<3>(index.att_index_) << 5.0_deg, 5.0_deg, 5.0_deg;
         if (aligned_mode_ == STATIONARY_AND_MOTION)
             PVariance.segment<3>(index.att_index_) << 2.0_deg, 2.0_deg, 5.0_deg;
+        LOG(INFO) << "aligned_mode is " << aligned_mode_ << std::endl;
         LOG(INFO) << "The attitude initialized variance setted by default!!! default!!!" << std::endl;
     }
     auto gyro_bias_std = config->get_array<double>("gyro_bias_std");
@@ -255,8 +260,8 @@ void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
     int basic_index = 12;
     if (evaluate_imu_scale != 0)
     {
-        state_index.gyro_bias_index_ = basic_index + 3;
-        state_index.gyro_scale_index_ = basic_index + 6;
+        state_index.gyro_scale_index_ = basic_index + 3;
+        state_index.acce_scale_index_ = basic_index + 6;
         basic_index += 6;
     }
     state_index.total_state = basic_index + 3; //TODO 需要调整

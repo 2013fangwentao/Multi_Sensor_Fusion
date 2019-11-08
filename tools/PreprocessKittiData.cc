@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Aug 25 下午5:35:25 2019 little fang
-** Last update Mon Aug 25 下午7:21:19 2019 little fang
+** Last update Tue Aug 26 上午9:30:22 2019 little fang
 */
 
 #include "navbase.hpp"
@@ -38,6 +38,7 @@ int main(int argc, char const *argv[])
         return 0;
     }
     ofstream ofs_gnss_file(output_path + "/gnss.txt");
+    ofstream ofs_ref_file(output_path + "/reference.txt");
     ofstream ofs_imu_file(output_path + "/imu.bin", std::fstream::binary);
     ofstream ofs_imutxt_file(output_path + "/imu.txt");
 
@@ -68,6 +69,9 @@ int main(int argc, char const *argv[])
         Vector3d accel = {stod(data[6 + 6]),
                           stod(data[7 + 6]),
                           stod(data[8 + 6])};
+        Vector3d att = {stod(data[6 + 9]),
+                        stod(data[7 + 9]),
+                        stod(data[8 + 9])};
         dt = time - bak_time;
         bak_time = time;
 
@@ -86,13 +90,29 @@ int main(int argc, char const *argv[])
         imu.gyro_[0] *= -1;
 
         std::cout << time << std::endl;
-        ofs_imutxt_file << time.GpsWeek() << "\t" << std::fixed << std::setprecision(5) << time.SecondOfWeek() << "\t" << imu.gyro_.transpose() << "\t" << imu.acce_.transpose() << std::endl;
-        ofs_gnss_file << time.GpsWeek() << "\t" << std::fixed << std::setprecision(5) << time.SecondOfWeek() << "\t" << XYZ.transpose() << "\t0.5\t0.5\t0.5" << std::endl;
+
+        ofs_imutxt_file << time.GpsWeek() << "\t" << std::fixed
+                        << std::setprecision(5) << time.SecondOfWeek() << "\t"
+                        << imu.gyro_.transpose() << "\t" << imu.acce_.transpose() << std::endl;
+
         ofs_imu_file.write(reinterpret_cast<char *>(&imu), sizeof(imu));
+
+        ofs_ref_file << time.GpsWeek() << "\t" << std::fixed
+                     << std::setprecision(5) << time.SecondOfWeek()
+                     << "\t" << XYZ.transpose() << "\t"
+                     << (att * rad2deg).transpose() << std::endl;
+
+        if (int(time.Second() * 10) % 10 == 0)
+        {
+            ofs_gnss_file << time.GpsWeek() << "\t" << std::fixed
+                          << std::setprecision(5) << time.SecondOfWeek() << "\t"
+                          << XYZ.transpose() << "\t0.5\t0.5\t0.5" << std::endl;
+        }
     }
     ifs_merge_data.close();
     ofs_gnss_file.close();
     ofs_imu_file.close();
+    ofs_ref_file.close();
     std::cout << "finish" << std::endl;
     return 0;
 }

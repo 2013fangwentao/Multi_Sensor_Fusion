@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:49:00 2019 little fang
-** Last update Sat Aug 23 下午3:14:11 2019 little fang
+** Last update Wed Nov 5 下午4:30:25 2019 little fang
 */
 #include "data/navdataque.h"
 #include "navlog.hpp"
@@ -93,6 +93,7 @@ void DataQueue::SortData()
         if (data != nullptr)
         {
             mtx_data_.lock();
+            // LOG(ERROR)<<data->get_time()<<"\t"<<data->get_type()<<std::endl;
             data_queue_.emplace_back(data);
             mtx_data_.unlock();
             switch (data->get_type())
@@ -117,6 +118,7 @@ void DataQueue::SortData()
                     camera = nullptr;
                     data_type_count--;
                 }
+                break;
             default: //bak for other data
                 break;
             }

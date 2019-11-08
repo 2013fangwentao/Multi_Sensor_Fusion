@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Sun Aug 10 下午9:30:45 2019 little fang
+** Last update Fri Nov 7 上午9:34:37 2019 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -22,6 +22,7 @@ namespace camera
 bool ImageProcess::is_initialed_(false);
 std::shared_ptr<ORBextractor> ImageProcess::orb_extractor_(nullptr);
 cv::Ptr<cv::DescriptorMatcher> ImageProcess::matcher_(cv::DescriptorMatcher::create("BruteForce-Hamming"));
+cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create());
 
 void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
                               int ini_th_fast, int min_th_fast)
@@ -55,6 +56,7 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
                    << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl;
     (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
+    // cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
     return;
 }
 
@@ -88,7 +90,7 @@ void ImageProcess::FreatureMatch(const std::vector<cv::KeyPoint> &keypoints1,
     double mean_dist = std::accumulate(tmp_matches.begin(), tmp_matches.end(), 0.0, [](double mean_dist, cv::DMatch match) {
         return mean_dist + match.distance;
     });
-    float threshold_distance = 0.8 * mean_dist / tmp_matches.size();
+    float threshold_distance = 0.5 * mean_dist / tmp_matches.size();
     threshold_distance = default_min_distance > threshold_distance ? default_min_distance : threshold_distance;
 
 LEAP:
@@ -105,9 +107,14 @@ LEAP:
         matches.clear();
         goto LEAP;
     }
+    else if (matches.size() > 500)
+    {
+        LOG(WARNING) << "threshold_distance is " << threshold_distance
+                     << " matched point count is " << matches.size() << std::endl;
+    }
 
-    OutlierRemove(keypoints1, keypoints2, matches);
-    LOG_EVERY_N(INFO, 1) << "matched point count is " << matches.size() << std::endl;
+    // OutlierRemove(keypoints1, keypoints2, matches);
+    LOG_EVERY_N(INFO, 20) << "matched point count is " << matches.size() << std::endl;
     return;
 }
 
@@ -132,7 +139,7 @@ void ImageProcess::OutlierRemove(const std::vector<cv::KeyPoint> &keypoints1,
         keypointf1.push_back(kp1);
         keypointf2.push_back(kp2);
     }
-    cv::Mat Homography = cv::findFundamentalMat(keypointf1, keypointf2, ransac_status, cv::FM_RANSAC, 15.0);
+    cv::Mat Homography = cv::findFundamentalMat(keypointf1, keypointf2, ransac_status, cv::FM_RANSAC, 25.0);
     LOG_IF(ERROR, (ransac_status.size() != matches.size())) << " ERROR ransac size != matches size" << std::endl;
     for (size_t i = 0; i < ransac_status.size(); i++)
     {

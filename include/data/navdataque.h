@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:38:06 2019 little fang
-** Last update Sat Aug 23 下午3:08:32 2019 little fang
+** Last update Tue Aug 26 上午9:20:13 2019 little fang
 */
 
 #ifndef DATA_DATAQUE_H_
@@ -58,7 +58,7 @@ private:
 
 namespace
 {
-inline utiltool::BaseData::bPtr& TimeFirst(utiltool::BaseData::bPtr& t1, utiltool::BaseData::bPtr& t2)
+inline utiltool::BaseData::bPtr &TimeFirst(utiltool::BaseData::bPtr &t1, utiltool::BaseData::bPtr &t2)
 {
     if (t1 == nullptr && t2 == nullptr)
     {
@@ -86,9 +86,9 @@ inline utiltool::BaseData::bPtr& TimeFirst(utiltool::BaseData::bPtr& t1, utiltoo
     }
 }
 template <typename... Args>
-inline utiltool::BaseData::bPtr& TimeFirst(utiltool::BaseData::bPtr& t, Args... args)
+inline utiltool::BaseData::bPtr &TimeFirst(utiltool::BaseData::bPtr &t, Args... args)
 {
-    utiltool::BaseData::bPtr t1 = (TimeFirst(args...));
+    utiltool::BaseData::bPtr &t1 = (TimeFirst(args...));
     return TimeFirst(t, t1);
 }
 

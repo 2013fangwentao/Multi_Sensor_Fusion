@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午3:21:09 2019 little fang
-** Last update Sun Aug 10 下午9:56:22 2019 dcq
+** Last update Mon Sep 15 2:27:45 PM 2019 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -51,7 +51,7 @@ int main(int argc, char const *argv[])
     {
         return 0;
     }
-    utiltool::LogInit(argv[0], "./log/", 0);
+    utiltool::LogInit(argv[0], ".", 0);
     ImageProcess::Initialize(1000, 1.2, 8, 20, 7);
 
     std::string image_path = argv[1];
@@ -84,8 +84,8 @@ int main(int argc, char const *argv[])
                                         matches,
                                         40.0);
             cv::drawMatches(pre_image, pre_keypoint, curr_image, curr_keypoint, matches, image_matches);
-            // cv::imshow("匹配数据", image_matches);
-            // cv::waitKey(1);
+            cv::imshow("匹配数据", image_matches);
+            cv::waitKey(1);
             cv::imwrite(output_path + "/match_" + line, image_matches);
         }
         pre_image = curr_image.clone();

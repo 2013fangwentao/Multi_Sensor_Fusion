@@ -11,5 +11,11 @@ target_link_libraries(CoorTran tools ${GFLAGS_LIBRARIES})
 add_executable(TimeTran ./TimeTransformation.cc)
 target_link_libraries(TimeTran tools ${GFLAGS_LIBRARIES})
 
-add_executable(preprocess_kitti_data ./preprocess_kitti_data.cc)
-target_link_libraries(preprocess_kitti_data tools)
+add_executable(ImuTran ./RawImuToImuData.cc)
+target_link_libraries(ImuTran tools ${GFLAGS_LIBRARIES})
+
+add_executable(PreprocessKitti ./PreprocessKittiData.cc)
+target_link_libraries(PreprocessKitti tools)
+
+add_executable(ImageUndistort ./ImageUndistort.cc)
+target_link_libraries(ImageUndistort tools ${OpenCV_LIBS} ${GLOG_LIBRARY})
