@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Wed Nov 5 下午2:42:11 2019 little fang
+** Last update Thu Nov 6 下午7:46:18 2019 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -33,6 +33,9 @@ namespace camera
 class MsckfProcess
 {
 public:
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
+public:
     using Ptr = std::shared_ptr<MsckfProcess>;
 
     MsckfProcess(const KalmanFilter::Ptr &filter);
@@ -47,10 +50,12 @@ private:
     void DetermineMeasureFeature();
     bool CheckEnableTriangleate(const Feature &feature);
     bool LMOptimizatePosition(Feature &feature);
+    bool TriangulatePoint(const Feature &feature, const Eigen::Isometry3d &cam0_trans, double position_cam0[3]);
 
     bool MeasurementJacobian(const Feature &feature,
                              Eigen::MatrixXd &H_state,
                              Eigen::VectorXd &z_measure);
+
     Eigen::VectorXd MeasurementUpdate(const Eigen::MatrixXd &H_state,
                                       const Eigen::VectorXd &z_measure);
 
@@ -65,7 +70,7 @@ private:
     std::vector<cv::DMatch> matches_;
     cv::Mat pre_frame_descriptors_;
     cv::Mat curr_frame_descriptors_;
-    Eigen::Isometry3d cam_imu_tranformation_;       //* coordinate from imu to camera
+    Eigen::Isometry3d cam_imu_tranformation_; //* coordinate from imu to camera
     std::vector<cv::KeyPoint> pre_frame_keypoints_;
     std::vector<cv::KeyPoint> curr_frame_keypoints_;
 
@@ -83,10 +88,14 @@ private:
     std::map<int, FeatureId> trainidx_feature_map_;
     utiltool::NavTime curr_time_;
     utiltool::NavInfo nav_info_;
+
+    cv::Mat pre_img;
 };
 
 struct ReprojectionError
 {
+    EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+
     ReprojectionError(const cv::Point2f &measure_point_uv,
                       const Eigen::Isometry3d &cam0_cami_transform) : image_uv(measure_point_uv),
                                                                       cam0_cami(cam0_cami_transform) {}

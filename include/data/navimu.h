@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 上午10:01:57 2019 little fang
-** Last update Tue Jul 22 下午5:44:17 2019 little fang
+** Last update Thu Nov 6 下午8:04:27 2019 little fang
 */
 
 #ifndef IMUDATA_H_
@@ -24,7 +24,7 @@ namespace mscnav
 {
 using utiltool::ImuData;
 using utiltool::IMUDATAPOOL;
-const int MAX_SIZE_IMUPOOL(120);
+const int MAX_SIZE_IMUPOOL(50);
 
 class ImuDataCollect
 {

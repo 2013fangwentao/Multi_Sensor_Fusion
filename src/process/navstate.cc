@@ -202,11 +202,11 @@ void State::StartProcessing()
         if (ptr_gnss_data != nullptr)
         {
             double dt = ptr_gnss_data->get_time() - latest_update_time_;
-            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
-            filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
+            // Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
+            // filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
             gps_process_->processing(ptr_gnss_data, nav_info_, dx);
             ReviseState(dx);
-            PHI = Eigen::MatrixXd::Identity(state_count, state_count);
+            // PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             latest_update_time_ = ptr_gnss_data->get_time();
             ptr_gnss_data = nullptr;
             // ofs_result_output_ << nav_info_ << std::endl;
@@ -215,6 +215,7 @@ void State::StartProcessing()
         else if (ptr_camera_data != nullptr)
         {
             msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
+            ptr_camera_data = nullptr;
         }
         else if (ptr_curr_imu_data != nullptr)
         {
@@ -223,10 +224,10 @@ void State::StartProcessing()
             (*ptr_curr_imu_data) = Compensate(*ptr_curr_imu_data, nav_info_, dt);
             nav_info_ = navmech::MechanicalArrangement(*ptr_pre_imu_data, *ptr_curr_imu_data, nav_info_, phi);
             // double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
-            // Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
-            // filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
+            Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
+            filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
             /*考虑为一步预测 */
-            PHI *= phi;
+            // PHI *= phi;
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }

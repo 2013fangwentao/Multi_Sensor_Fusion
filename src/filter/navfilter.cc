@@ -73,7 +73,7 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
     auto &Nstate = state_index_.total_state;
     state_cov_.block(0, 0, Nstate, Nstate) =
         Phi * state_cov_.block(0, 0, Nstate, Nstate) * Phi.transpose() + Q;
-    state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
+    // state_cov_ = Phi * state_cov_ * Phi.transpose() + Q;
 
     //* 更新IMU和Camera的协方差
     int Ncamstate = state_index_.camera_state_index.size() * 6;
@@ -84,14 +84,14 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
   }
   if (debug_log_)
   {
-    debug_log_file_ << std::endl
-                    << std::fixed << time.Time2String() << std::endl;
-    debug_log_file_ << std::setprecision(18) << "state cov" << std::endl
-                    << state_cov_ << std::endl
-                    << "PHI " << std::endl
-                    << Phi << std::endl
-                    << " Q " << std::endl
-                    << Q << std::endl;
+    // debug_log_file_ << std::endl
+    //                 << std::fixed << time.Time2String() << std::endl;
+    // debug_log_file_ << std::setprecision(18) << "state cov" << std::endl
+    //                 << state_cov_ << std::endl
+    //                 << "PHI " << std::endl
+    //                 << Phi << std::endl
+    //                 << " Q " << std::endl
+    //                 << Q << std::endl;
   }
 }
 

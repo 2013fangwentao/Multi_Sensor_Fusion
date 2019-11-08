@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Fri Aug 23 下午12:03:22 2019 little fang
-** Last update Sat Aug 23 下午2:57:39 2019 little fang
+** Last update Fri Nov 7 上午11:09:55 2019 little fang
 */
 
 #include "data/navcamera.h"
@@ -114,7 +114,7 @@ void FileCameraData::ReadingData()
             std::unique_lock<std::mutex> lck(mtx_collectdata_);
             cd_datapool_.emplace_back(image);
         }
-        while (cd_datapool_.size() > MAX_SIZE_CAMERAPOOL)
+        while (cd_datapool_.size() > 20*MAX_SIZE_CAMERAPOOL)
         {
             std::this_thread::sleep_for(milliseconds(200));
         }

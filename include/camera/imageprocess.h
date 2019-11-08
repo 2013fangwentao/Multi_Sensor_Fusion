@@ -27,6 +27,7 @@ private:
     static std::shared_ptr<ORBextractor> orb_extractor_;
     static cv::Ptr<cv::DescriptorMatcher> matcher_;
     static bool is_initialed_;
+    static cv::Ptr<cv::ORB> cv_orb_;
 
 private:
     ImageProcess() {}

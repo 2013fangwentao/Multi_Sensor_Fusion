@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 上午10:02:18 2019 little fang
-** Last update undefined Jul 21 上午10:02:18 2019 little fang
+** Last update Thu Nov 6 下午8:04:40 2019 little fang
 */
 
 #ifndef GNSSDATA_H_
@@ -24,7 +24,7 @@
 
 namespace mscnav
 {
-const int MAX_SIZE_GNSSPOOL(500);
+const int MAX_SIZE_GNSSPOOL(50);
 
 using utiltool::GnssData;
 using utiltool::GNSSDATAPOOL;
