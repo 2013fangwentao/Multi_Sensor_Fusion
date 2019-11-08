@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Fri Nov 7 上午10:27:32 2019 little fang
+** Last update Sat Nov 8 下午8:46:31 2019 little fang
 */
 
 #include "navattitude.hpp"
@@ -211,7 +211,7 @@ void MsckfProcess::AddObservation()
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
             map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
             curr_trainidx_feature_map_[member.queryIdx] = iter_feature->second;
-            curr_camera_state->second.feature_id_set_.push_back(iter_feature->first);
+            curr_camera_state->second.feature_id_set_.push_back(iter_feature->second);
             track_num++;
         }
     }
@@ -349,28 +349,24 @@ bool MsckfProcess::LMOptimizatePosition(Feature &feature)
     {
         return false;
     }
-
     for (auto &observation : feature.observation_uv_)
     {
         auto &camera_id = observation.first;
-        auto &camera_state = map_state_set_[camera_id];
+        const auto &camera_state = map_state_set_[camera_id];//! FIXME 有问题
         cv::Point2f &observation_point = observation.second;
         Eigen::Isometry3d cami_tranformation{Eigen::Isometry3d::Identity()};
         cami_tranformation.rotate(camera_state.quat_.toRotationMatrix());
         cami_tranformation.pretranslate(camera_state.position_);
         Eigen::Isometry3d cam0_cami = (cami_tranformation.inverse() * cam0_tranformation).inverse();
-        // Eigen::Matrix3d cam0_cami_rotate = ((camera_state.quat_.conjugate()).toRotationMatrix() * cam0_tranformation.rotation()).transpose();
-        // Eigen::Vector3d cam0_cami_translate = cam0_tranformation.rotation().transpose() * (camera_state.position_ - cam0_tranformation.translation());
-        // cam0_cami.rotate(cam0_cami_rotate);
-        // cam0_cami.translate(cam0_cami_translate);
         ceres::CostFunction *cost_function = ReprojectionError::Create(observation_point, cam0_cami);
         problem.AddResidualBlock(cost_function, NULL, position_world);
     }
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
     ceres::Solver::Summary summary;
-    options.minimizer_progress_to_stdout = true;
+    // options.minimizer_progress_to_stdout = true;
     ceres::Solve(options, &problem, &summary);
+
     feature.position_world_ << position_world[0], position_world[1], position_world[2];
     if (feature.position_world_.norm() > 50)
         return false;
@@ -525,7 +521,8 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
     for (auto iter_feature = map_observation_set_.begin(); iter_feature != map_observation_set_.end(); iter_feature++)
     //for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
     {
-        if (LMOptimizatePosition(iter_feature->second))
+        bool temp = LMOptimizatePosition(iter_feature->second);
+        if (temp)
         {
             Eigen::MatrixXd H_state;
             Eigen::VectorXd z_measure;
