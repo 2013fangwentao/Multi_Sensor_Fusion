@@ -35,6 +35,3 @@ cmake .. && make -j3
 ### 讨论交流
 - QQ: 1280269817
 - e-mail: fangwentaowhu@outlook.com   wtfang@whu.edu.cn
-
-### ！！！
-最近在艰难地找工作，所以许久没有更新，等过完秋招季继续跟进！
