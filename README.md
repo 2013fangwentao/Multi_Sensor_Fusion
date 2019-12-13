@@ -32,6 +32,10 @@ cmake .. && make -j3
 - msckf功能流程完善，需要测试调bug
 - 目前程序还在持续开发,后续希望能做好GPS+IMU+CAMERA的定位功能
 
+### 备注
+目前在搭建硬件设备准备采集数据，比较麻烦，因此代码没有更新，平台完成后会共享一部分数据上来
+
+
 ### 讨论交流
 - QQ: 1280269817
 - e-mail: fangwentaowhu@outlook.com   wtfang@whu.edu.cn
