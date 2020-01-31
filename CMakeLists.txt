@@ -1,7 +1,8 @@
 cmake_minimum_required( VERSION 2.8 )
 PROJECT(mscnav)
 
-set(Ceres_DIR /opt/thirdparty/lib/cmake/Ceres)
+set(Ceres_DIR /opt/lib/cmake/Ceres)
+# set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH}")
 
 find_package(glog REQUIRED)
 find_package(gflags REQUIRED)

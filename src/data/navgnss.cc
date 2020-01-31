@@ -57,6 +57,8 @@ bool FileGnssData::StartReadGnssData()
 		log_path += "/gnss-data-" + time.Time2String() + ".log";
 		ofs_log_.open(log_path);
 	}
+	auto break_time = config->get_array<double>("gnss_break");
+	DetermineBreakTime(break_time);
 	aint_markofcollectdata_ = 0;
 	std::thread th(&FileGnssData::ReadingData, this);
 	th_collectgdata_ = std::move(th);
@@ -118,7 +120,7 @@ void FileGnssData::ReadingData()
 		if (linestr.size() == 0)
 			continue;
 		auto dat = TextSplit(linestr, "\\s+");
-		if (dat.size() < 8)
+		if (dat.size() < 9)
 		{
 			LOG(ERROR) << "Data Format Error! \"" << linestr << "\"" << std::endl;
 			continue;
@@ -132,8 +134,15 @@ void FileGnssData::ReadingData()
 			gd_temp->set_time(time);
 			gd_temp->pos_ = Vector3d{std::stod(dat[2]), std::stod(dat[3]), std::stod(dat[4])};
 			gd_temp->pos_std_ = Vector3d{std::stod(dat[5]), std::stod(dat[6]), std::stod(dat[7])};
-			std::unique_lock<std::mutex> lck(mtx_collectdata_);
-			gd_datapool_.emplace_back(gd_temp);
+			if (std::stoi(dat[8]) == 1 && (!IsBreak(time.SecondOfWeek())))
+			{
+				if (logout_)
+				{
+					ofs_log_ << gd_temp << std::endl;
+				}
+				std::unique_lock<std::mutex> lck(mtx_collectdata_);
+				gd_datapool_.emplace_back(gd_temp);
+			}
 		}
 		catch (const std::exception &e)
 		{
@@ -147,6 +156,37 @@ void FileGnssData::ReadingData()
 	}
 	aint_markofcollectdata_ = 1;
 	ifs_file_.close();
+}
+
+void FileGnssData::DetermineBreakTime(const std::vector<double>& break_time)
+{
+	memset(low_bound_, 0x0, sizeof(double) * 20);
+	memset(up_bound_, 0x0, sizeof(double) * 20);
+	double breakstart = break_time.at(0);
+	double breaktime = break_time.at(1);
+	double breakinterval = break_time.at(2);
+	bound_count_ = int(break_time.at(3));
+	for (int i = 0; i < bound_count_; i++)
+	{
+		low_bound_[i] = breakstart + (breakinterval + breaktime) * i;
+		up_bound_[i] = breakstart + breaktime + (breakinterval + breaktime) * i;
+	}
+}
+
+bool FileGnssData::IsBreak(double sow)
+{
+	if (bound_count_ < 1)
+	{
+		return false;
+	}
+	for (int i = 0; i < bound_count_; i++)
+	{
+		if (sow > low_bound_[i] && sow < up_bound_[i])
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 } // namespace mscnav

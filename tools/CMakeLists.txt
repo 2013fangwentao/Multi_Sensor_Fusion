@@ -19,3 +19,6 @@ target_link_libraries(PreprocessKitti tools)
 
 add_executable(ImageUndistort ./ImageUndistort.cc)
 target_link_libraries(ImageUndistort tools ${OpenCV_LIBS} ${GLOG_LIBRARY})
+
+add_executable(picture_preprocess ./picture_preprocess.cc)
+target_link_libraries(picture_preprocess tools)

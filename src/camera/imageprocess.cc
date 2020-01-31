@@ -109,12 +109,15 @@ LEAP:
     }
     else if (matches.size() > 500)
     {
+        threshold_distance *= 0.5;
+        matches.clear();
+        goto LEAP;
         LOG(WARNING) << "threshold_distance is " << threshold_distance
                      << " matched point count is " << matches.size() << std::endl;
     }
 
-    // OutlierRemove(keypoints1, keypoints2, matches);
-    LOG_EVERY_N(INFO, 20) << "matched point count is " << matches.size() << std::endl;
+    OutlierRemove(keypoints1, keypoints2, matches);
+    LOG_EVERY_N(INFO, 10) << "matched point count is " << matches.size() << std::endl;
     return;
 }
 

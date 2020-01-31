@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午3:21:09 2019 little fang
-** Last update Mon Sep 15 2:27:45 PM 2019 little fang
+** Last update Sun Jan 11 下午3:08:35 2020 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -52,7 +52,7 @@ int main(int argc, char const *argv[])
         return 0;
     }
     utiltool::LogInit(argv[0], ".", 0);
-    ImageProcess::Initialize(1000, 1.2, 8, 20, 7);
+    ImageProcess::Initialize(800, 1.2, 8, 20, 7);
 
     std::string image_path = argv[1];
     std::string output_path = argv[2];
@@ -67,8 +67,9 @@ int main(int argc, char const *argv[])
         cv::Mat curr_descr;
         std::string line;
         std::getline(ifs_name_deque, line);
-        cv::Mat curr_image = cv::imread(image_path + "/" + line, CV_LOAD_IMAGE_GRAYSCALE);
-        ImageProcess::OrbFreatureExtract(curr_image, curr_keypoint, curr_descr);
+        cv::Mat curr_image = cv::imread(image_path + "/" + line + ".png", CV_LOAD_IMAGE_GRAYSCALE);
+        cv::Mat curr_image_half = curr_image.rowRange(0, 320);
+        ImageProcess::OrbFreatureExtract(curr_image_half, curr_keypoint, curr_descr);
         cv::Mat key_image;
         cv::drawKeypoints(curr_image, curr_keypoint, key_image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DEFAULT);
         cv::imshow("key point", key_image);
@@ -84,9 +85,9 @@ int main(int argc, char const *argv[])
                                         matches,
                                         40.0);
             cv::drawMatches(pre_image, pre_keypoint, curr_image, curr_keypoint, matches, image_matches);
-            cv::imshow("匹配数据", image_matches);
-            cv::waitKey(1);
-            cv::imwrite(output_path + "/match_" + line, image_matches);
+            // cv::imshow("匹配数据", image_matches);
+            // cv::waitKey(1);
+            cv::imwrite(output_path + "/match_" + line + ".png", image_matches);
         }
         pre_image = curr_image.clone();
         pre_descr = curr_descr.clone();

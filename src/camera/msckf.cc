@@ -40,8 +40,8 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
         LOG(ERROR) << "camera_intrinsic/camera_distcoeffs size error" << std::endl;
         getchar();
     }
-    camera_mat_ = (cv::Mat_<double>(3, 3) << camera_par[0], 0.0, camera_par[2],
-                   0.0, camera_par[1], camera_par[3],
+    camera_mat_ = (cv::Mat_<double>(3, 3) << camera_par.at(0), 0.0, camera_par.at(2),
+                   0.0, camera_par.at(1), camera_par.at(3),
                    0.0, 0.0, 1.0);
 
     dist_coeffs_ = (cv::Mat_<double>(5, 1) << dist_par[0], dist_par[1], dist_par[2], dist_par[3], dist_par[4]);
@@ -51,13 +51,13 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     auto cam_imu_translation = config_->get_array<double>("camera_imu_translation");
     Eigen::Matrix3d rotation;
     Eigen::Vector3d translation;
-    rotation << cam_imu_rotation[0], cam_imu_rotation[1], cam_imu_rotation[2],
-        cam_imu_rotation[3], cam_imu_rotation[4], cam_imu_rotation[5],
-        cam_imu_rotation[6], cam_imu_rotation[7], cam_imu_rotation[8];
+    rotation << cam_imu_rotation.at(0), cam_imu_rotation.at(1), cam_imu_rotation.at(2),
+        cam_imu_rotation.at(3), cam_imu_rotation.at(4), cam_imu_rotation.at(5),
+        cam_imu_rotation.at(6), cam_imu_rotation.at(7), cam_imu_rotation.at(8);
 
     // TODO 需要核对,需要确定一般给定的cam和imu方向余弦矩阵由哪个旋转至哪个
     cam_imu_tranformation_ = {Eigen::Isometry3d::Identity()};
-    translation << cam_imu_translation[0], cam_imu_translation[1], cam_imu_translation[2];
+    translation << cam_imu_translation.at(0), cam_imu_translation.at(1), cam_imu_translation.at(2);
     cam_imu_tranformation_.rotate(rotation);
     cam_imu_tranformation_.pretranslate(translation);
     // cam_imu_tranformation_.translate(translation);
@@ -73,6 +73,7 @@ void MsckfProcess::FirstImageProcess(const cv::Mat &img1, const utiltool::NavInf
 bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time, utiltool::NavInfo &navinfo)
 {
     static int max_camera_size = config_->get<int>("max_camera_sliding_window");
+    static int static_detect_count = 0;
     curr_time_ = time;
     if (is_first_)
     {
@@ -97,10 +98,26 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
                                 curr_frame_keypoints_,
                                 curr_frame_descriptors_,
                                 matches_, 20.0);
-    // cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
-    // cv::imshow("匹配数据", key_image);
-    // cv::waitKey(0);
-    // pre_img = img1.clone();
+    cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
+    cv::imshow("匹配数据", key_image);
+    cv::waitKey(1);
+    pre_img = img1.clone();
+    // if (matches_.size() > 500)
+    // {
+    //     static_detect_count++;
+    //     if (static_detect_count > 30)
+    //     {
+    //         static_detect_count = 0;
+    //     }
+    //     if (static_detect_count > 10)
+    //     {
+    //         return false;
+    //     }
+    // }
+    // else
+    // {
+    //     static_detect_count = 0;
+    // }
 
     //** 增加当前camera State到系统中去.
     AguementedState(navinfo);
@@ -110,6 +127,7 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
 
     //** 选择本次参与量测更新的点集
     DetermineMeasureFeature();
+    LOG_EVERY_N(INFO,10) << "Measure Feature Number is " << map_observation_set_.size() << std::endl;
 
     //** 特征点量测更新
     FeatureMeasureUpdate(navinfo);
@@ -244,6 +262,8 @@ void MsckfProcess::DetermineMeasureFeature()
                 if (CheckEnableTriangleate(feature))
                 {
                     map_observation_set_.insert(*iter_member);
+                    if(map_observation_set_.size() > 100)
+                        return;
                 }
             }
             iter_member = map_feature_set_.erase(iter_member);
@@ -352,7 +372,7 @@ bool MsckfProcess::LMOptimizatePosition(Feature &feature)
     for (auto &observation : feature.observation_uv_)
     {
         auto &camera_id = observation.first;
-        const auto &camera_state = map_state_set_[camera_id];//! FIXME 有问题
+        const auto &camera_state = map_state_set_[camera_id]; //! FIXME 有问题
         cv::Point2f &observation_point = observation.second;
         Eigen::Isometry3d cami_tranformation{Eigen::Isometry3d::Identity()};
         cami_tranformation.rotate(camera_state.quat_.toRotationMatrix());

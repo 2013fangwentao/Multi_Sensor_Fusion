@@ -84,47 +84,47 @@ bool State::InitializeState()
 
     std::vector<double> tmp_value = config_->get_array<double>("position_random_walk");
     state_q_tmp.segment<3>(index.pos_index_)
-        << tmp_value[0],
-        tmp_value[1],
-        tmp_value[2];
+        << tmp_value.at(0),
+        tmp_value.at(1),
+        tmp_value.at(2);
 
     tmp_value = config_->get_array<double>("velocity_random_walk");
     state_q_tmp.segment<3>(index.vel_index_)
-        << tmp_value[0] / 60.0,
-        tmp_value[1] / 60.0,
-        tmp_value[2] / 60.0;
+        << tmp_value.at(0) / 60.0,
+        tmp_value.at(1) / 60.0,
+        tmp_value.at(2) / 60.0;
 
     tmp_value = config_->get_array<double>("attitude_random_walk");
     state_q_tmp.segment<3>(index.att_index_)
-        << tmp_value[0] * deg2rad / 60.0,
-        tmp_value[1] * deg2rad / 60.0,
-        tmp_value[2] * deg2rad / 60.0;
+        << tmp_value.at(0) * deg2rad / 60.0,
+        tmp_value.at(1) * deg2rad / 60.0,
+        tmp_value.at(2) * deg2rad / 60.0;
 
     tmp_value = config_->get_array<double>("gyro_bias_std");
     state_q_tmp.segment<3>(index.gyro_bias_index_)
-        << tmp_value[0] * dh2rs,
-        tmp_value[1] * dh2rs,
-        tmp_value[2] * dh2rs;
+        << tmp_value.at(0) * dh2rs,
+        tmp_value.at(1) * dh2rs,
+        tmp_value.at(2) * dh2rs;
 
     tmp_value = config_->get_array<double>("acce_bias_std");
     state_q_tmp.segment<3>(index.acce_bias_index_)
-        << tmp_value[0] * constant_mGal,
-        tmp_value[1] * constant_mGal,
-        tmp_value[2] * constant_mGal;
+        << tmp_value.at(0) * constant_mGal,
+        tmp_value.at(1) * constant_mGal,
+        tmp_value.at(2) * constant_mGal;
 
     if (config_->get<int>("evaluate_imu_scale") != 0)
     {
         tmp_value = config_->get_array<double>("gyro_scale_std");
         state_q_tmp.segment<3>(index.gyro_scale_index_)
-            << tmp_value[0] * constant_ppm,
-            tmp_value[1] * constant_ppm,
-            tmp_value[2] * constant_ppm;
+            << tmp_value.at(0) * constant_ppm,
+            tmp_value.at(1) * constant_ppm,
+            tmp_value.at(2) * constant_ppm;
 
         tmp_value = config_->get_array<double>("acce_scale_std");
         state_q_tmp.segment<3>(index.acce_scale_index_)
-            << tmp_value[0] * constant_ppm,
-            tmp_value[1] * constant_ppm,
-            tmp_value[2] * constant_ppm;
+            << tmp_value.at(0) * constant_ppm,
+            tmp_value.at(1) * constant_ppm,
+            tmp_value.at(2) * constant_ppm;
     }
     state_q_tmp = state_q_tmp.array().pow(2);
     double gbtime = config_->get<double>("corr_time_of_gyro_bias") * constant_hour;
@@ -231,16 +231,16 @@ void State::StartProcessing()
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = int((nav_info_.time_.Second() + 1e-6) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        int idt = int((nav_info_.time_.Second()) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
             auto output_nav = InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time);
-            // output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
-            // auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
-            // output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
+            output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
+            auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
+            output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
             ofs_result_output_ << output_nav << std::endl;
             LOG(INFO) << output_nav.time_ << std::endl;
         }
