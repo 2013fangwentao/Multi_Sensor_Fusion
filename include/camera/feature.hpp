@@ -5,13 +5,15 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午3:24:38 2019 little fang
-** Last update Fri Nov 7 上午9:28:16 2019 little fang
+** Last update Tue Feb 3 下午6:34:48 2020 little fang
 */
 
 #ifndef FEATURE_H_
 #define FEATURE_H_
 
+#include "msckf.hpp"
 #include <map>
+#include <iomanip>
 #include <Eigen/Dense>
 #include <opencv2/core/core.hpp>
 
@@ -41,6 +43,7 @@ public:
     FeatureId feature_id_;
     Eigen::Vector3d position_world_{0, 0, 0}; //特征点的世界坐标
     std::map<StateId, cv::Point2f> observation_uv_;
+    std::map<StateId, cv::Point2f> raw_uv_;
     bool is_initialized_ = false;
 };
 FeatureId Feature::for_next_one(0);
@@ -66,6 +69,39 @@ private:
     static StateId for_next_one;
 };
 StateId CameraState::for_next_one(0);
+
+/**
+  * @brief  override the ostream output map<key,value>
+  * @note   
+  * @param  &output: 
+  * @param  &data: output data map<key,value>
+  * @retval 
+  */
+template <typename key, typename value>
+std::ostream &
+operator<<(std::ostream &output, const std::map<key, value> &data)
+{
+    for (auto index : data)
+    {
+        output << "{" << index.first << ",[" << index.second << "]}  ";
+    }
+    return output;
+};
+
+std::ostream &operator<<(std::ostream &output, const CameraState &camera_state)
+{
+    output << std::setw(9) << std::setfill('0') << camera_state.state_id_ << "  ";
+    output << std::fixed << std::setprecision(4) << camera_state.position_.transpose();
+    return output;
+};
+
+std::ostream &operator<<(std::ostream &output, const Feature &feature)
+{
+    output << std::setw(9) << std::setfill('0') << feature.feature_id_ << "  ";
+    output << std::fixed << std::setprecision(8) << feature.observation_uv_;
+    return output;
+};
+
 } // namespace camera
 
 } // namespace mscnav

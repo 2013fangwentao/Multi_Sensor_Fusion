@@ -22,3 +22,6 @@ target_link_libraries(ImageUndistort tools ${OpenCV_LIBS} ${GLOG_LIBRARY})
 
 add_executable(picture_preprocess ./picture_preprocess.cc)
 target_link_libraries(picture_preprocess tools)
+
+add_executable(PrintKeypoints ./PrintKeypoints.cc)
+target_link_libraries(PrintKeypoints tools ${OpenCV_LIBS})

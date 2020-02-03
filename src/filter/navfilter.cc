@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Fri Jan 16 上午11:33:54 2020 little fang
+** Last update Tue Feb 3 下午9:55:44 2020 little fang
 */
 
 #include "filter/navfilter.h"
@@ -36,6 +36,7 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
 
     std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/" +
                                   getconfig->get<std::string>("filter_debug_cov_file");
+    debug_info_path.append(".log-" + (utiltool::NavTime::NowTime()).Time2String("%04d-%02d-%02d-%02d-%02d-%4.1f"));
     debug_log_file_.open(debug_info_path);
     LOG(INFO) << "filter_debug_cov_file: " << debug_info_path << std::endl;
 
@@ -98,7 +99,9 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
 Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
                                             const utiltool::NavTime &time)
 {
-  if (debug_log_)
+  double second = time.SecondOfDay();
+  int int_second = int(second * 100);
+  if (debug_log_ && int_second % 100 == 0)
   {
     debug_log_file_ << "\n"
                     << std::fixed << time.Time2String() << std::endl;
@@ -115,7 +118,7 @@ Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eige
   Eigen::VectorXd deltaX = K * Z;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(state_cov_.rows(), state_cov_.cols());
   state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
-  if (debug_log_)
+  if (debug_log_ && int_second % 100 == 0)
   {
     debug_log_file_ << std::setprecision(8) << "after update state cov" << std::endl
                     << state_cov_ << std::endl

@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Thu Nov 6 下午7:46:18 2019 little fang
+** Last update Tue Feb 3 下午9:59:36 2020 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -42,6 +42,7 @@ public:
     ~MsckfProcess() {}
 
     bool ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time, utiltool::NavInfo &navinfo);
+    void ReviseCameraState(const Eigen::VectorXd &dx_camera);
 
 private:
     void FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo);
@@ -49,6 +50,7 @@ private:
     void AddObservation();
     void DetermineMeasureFeature();
     bool CheckEnableTriangleate(const Feature &feature);
+    bool CheckMotionStatus(const Feature &feature);
     bool LMOptimizatePosition(Feature &feature);
     bool TriangulatePoint(const Feature &feature, const Eigen::Isometry3d &cam0_trans, double position_cam0[3]);
 
@@ -58,8 +60,6 @@ private:
 
     Eigen::VectorXd MeasurementUpdate(const Eigen::MatrixXd &H_state,
                                       const Eigen::VectorXd &z_measure);
-
-    void ReviseCameraState(const Eigen::VectorXd &dx_camera);
 
     void FeatureMeasureUpdate(utiltool::NavInfo &navinfo);
 
@@ -79,6 +79,7 @@ private:
     std::map<StateId, CameraState> map_state_set_;
 
 private:
+    bool camera_feature_log_ = false;
     bool is_first_ = true;
     double tracking_rate_ = 1.0;
     cv::Mat camera_mat_;
@@ -90,6 +91,7 @@ private:
     utiltool::NavInfo nav_info_;
 
     cv::Mat pre_img;
+    std::ofstream ofs_camera_feature_log_file_;
 };
 
 struct ReprojectionError
@@ -105,7 +107,7 @@ struct ReprojectionError
         Eigen::Matrix<T, 3, 1> point;
         point << feature_point_world[0], feature_point_world[1], feature_point_world[2];
 
-        point = cam0_cami * point;
+        point = cam0_cami.inverse() * point;
         T point_reproject_image[2] = {point(0) / point(2), point(1) / point(2)};
         residuals[0] = point_reproject_image[0] - T(image_uv.x);
         residuals[1] = point_reproject_image[1] - T(image_uv.y);

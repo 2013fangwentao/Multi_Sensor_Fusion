@@ -5,18 +5,19 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Sat Nov 8 下午8:46:31 2019 little fang
+** Last update Tue Feb 3 下午9:40:41 2020 little fang
 */
 
 #include "navattitude.hpp"
 #include "camera/msckf.hpp"
 #include "camera/imageprocess.h"
+#include "navbase.hpp"
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
 using namespace utiltool::attitude;
-
+using namespace utiltool;
 namespace mscnav
 {
 namespace camera
@@ -30,6 +31,19 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     float scale_factor = config_->get<float>("scale_factor");
     int ini_th_fast = config_->get<int>("iniThFAST");
     int min_th_fast = config_->get<int>("minThFAST");
+    camera_feature_log_ = (config_->get<int>("camera_feature_log") == 0) ? false : true;
+    if (camera_feature_log_)
+    {
+        std::string result_path = config_->get<std::string>("result_output_path");
+        utiltool::NavTime time = utiltool::NavTime::NowTime();
+        result_path.append("/camera_fearture_log.log-" + time.Time2String("%04d-%02d-%02d-%02d-%02d-%.1f"));
+        ofs_camera_feature_log_file_.open(result_path);
+        if (!ofs_camera_feature_log_file_.good())
+        {
+            LOG(ERROR) << "Camera and Feature log file open failed. Path: " << result_path << std::endl;
+            getchar();
+        }
+    }
     ImageProcess::Initialize(num_features, scale_factor, num_levels, ini_th_fast, min_th_fast);
 
     //* 相机内参和畸变矫正参数
@@ -98,9 +112,9 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
                                 curr_frame_keypoints_,
                                 curr_frame_descriptors_,
                                 matches_, 20.0);
-    cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
-    cv::imshow("匹配数据", key_image);
-    cv::waitKey(1);
+    // cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
+    // cv::imshow("匹配数据", key_image);
+    // cv::waitKey(1);
     pre_img = img1.clone();
     // if (matches_.size() > 500)
     // {
@@ -127,7 +141,7 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img1, const utiltool::NavTime &ti
 
     //** 选择本次参与量测更新的点集
     DetermineMeasureFeature();
-    LOG_EVERY_N(INFO,10) << "Measure Feature Number is " << map_observation_set_.size() << std::endl;
+    LOG_EVERY_N(INFO, 10) << "Measure Feature Number is " << map_observation_set_.size() << std::endl;
 
     //** 特征点量测更新
     FeatureMeasureUpdate(navinfo);
@@ -161,6 +175,12 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
     map_state_set_.insert(std::make_pair(cam_state.state_id_, cam_state));
     // map_state_set_[cam_state.state_id_] = cam_state;//!不要采用这种方式赋值，id号会不对
 
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << cam_state.time_ << cam_state << std::endl;
+        ofs_camera_feature_log_file_ << "map camera: " << map_state_set_ << std::endl;
+    }
+
     //* 增广对应状态的方差信息到滤波的方程协方差矩阵中
     utiltool::StateIndex &index = filter_->GetStateIndex();
     int state_count = index.total_state + index.camera_state_index.size() * 6;
@@ -169,16 +189,25 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
 
     //TODO 需要核对是rotation还是其装置 三行参数都需要再核对
     //TODO 协方差传递需要重新推到，对应顺序不对 初步调正,需要核实！！！
-    // !-> 需要核实！！！
-    J.block<3, 3>(state_count, 6) = cam_imu_tranformation_.rotation();
-    J.block<3, 3>(state_count + 3, 6) = navinfo.rotation_ * utiltool::skew(cam_imu_tranformation_.translation());
-    J.block<3, 3>(state_count + 3, 0) = Eigen::Matrix3d::Identity();
+    // !-> 需要核实！！！2020-02-02核实错误，对应顺序不对，重新调整！特别要注意顺序！
+    // J.block<3, 3>(state_count, 6) = cam_imu_tranformation_.rotation();
+    // J.block<3, 3>(state_count + 3, 6) = navinfo.rotation_ * utiltool::skew(cam_imu_tranformation_.translation());
+    // J.block<3, 3>(state_count + 3, 0) = Eigen::Matrix3d::Identity();
+
+    J.block<3, 3>(state_count + 3, 6) = cam_imu_tranformation_.rotation();
+    J.block<3, 3>(state_count, 6) = navinfo.rotation_ * utiltool::skew(cam_imu_tranformation_.translation());
+    J.block<3, 3>(state_count, 0) = Eigen::Matrix3d::Identity();
 
     Eigen::MatrixXd &state_cov = filter_->GetStateCov();
     state_cov = J * state_cov * J.transpose();
 
     int the_latest_count_state = (index.total_state) + index.camera_state_index.size() * 6;
     index.camera_state_index[cam_state.state_id_] = the_latest_count_state;
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "camera state index: " << index.camera_state_index << std::endl
+                                     << std::endl;
+    }
     return;
 }
 
@@ -203,21 +232,34 @@ void MsckfProcess::AddObservation()
     std::vector<cv::Point2f> keypoint_distorted, keypoint_undistorted;
     for (auto &member : matches_)
     {
-        auto iter_feature = trainidx_feature_map_.find(member.trainIdx);
+        auto iter_trainIdx = curr_trainidx_feature_map_.find(member.trainIdx);
+        if (iter_trainIdx != curr_trainidx_feature_map_.end())
+            continue;
+        auto iter_feature = trainidx_feature_map_.find(member.queryIdx);
         if (iter_feature == trainidx_feature_map_.end()) // 新的特征点，创建实例对象，并赋值
         {
             Feature feature;
             keypoint_distorted.clear();
             keypoint_undistorted.clear();
-            keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt); //TODO 核实这两个trainIdx 2019.11.07
-            keypoint_distorted.push_back(curr_frame_keypoints_[member.queryIdx].pt);
-            // keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+            // keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt); //TODO 核实这两个trainIdx 2019.11.07
+            keypoint_distorted.push_back(pre_frame_keypoints_[member.queryIdx].pt); //* 2020-02-01 核实trainIdx和queryIdx通过
+            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+
+            double diff_x = fabs(keypoint_undistorted[0].x - keypoint_undistorted[1].x);
+            double diff_y = fabs(keypoint_undistorted[0].y - keypoint_undistorted[1].y);
+            if (diff_y > 0.04 || diff_x > 0.12)
+                continue;
+
             feature.observation_uv_[pre_camera_state->first] = keypoint_undistorted[0];
             feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
+
+            feature.raw_uv_[pre_camera_state->first] = keypoint_distorted[0];
+            feature.raw_uv_[curr_camera_state->first] = keypoint_distorted[1];
+
             map_feature_set_.insert(std::make_pair(feature.feature_id_, feature));
             // map_feature_set_[feature.feature_id_] = feature;
-            curr_trainidx_feature_map_[member.queryIdx] = feature.feature_id_;
+            curr_trainidx_feature_map_[member.trainIdx] = feature.feature_id_;
             curr_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
             pre_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
         }
@@ -227,12 +269,32 @@ void MsckfProcess::AddObservation()
             keypoint_undistorted.clear();
             keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
             cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+
+            auto &pts = map_feature_set_[iter_feature->second].observation_uv_[pre_camera_state->first];
+            double diff_x = fabs(keypoint_undistorted[0].x - pts.x);
+            double diff_y = fabs(keypoint_undistorted[0].y - pts.y);
+            if (diff_y > 0.04 || diff_x > 0.12)
+                continue;
+
             map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
-            curr_trainidx_feature_map_[member.queryIdx] = iter_feature->second;
+            map_feature_set_[iter_feature->second].raw_uv_[curr_camera_state->first] = keypoint_distorted[0];
+
+            curr_trainidx_feature_map_[member.trainIdx] = iter_feature->second;
             curr_camera_state->second.feature_id_set_.push_back(iter_feature->second);
             track_num++;
         }
     }
+
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "feature map:\t" << std::endl;
+        for (auto index : map_feature_set_)
+        {
+            ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
+        }
+        ofs_camera_feature_log_file_ << std::endl;
+    }
+
     trainidx_feature_map_ = curr_trainidx_feature_map_;
     pre_frame_descriptors_ = curr_frame_descriptors_.clone();
     pre_frame_keypoints_ = curr_frame_keypoints_;
@@ -251,25 +313,43 @@ void MsckfProcess::DetermineMeasureFeature()
     map_observation_set_.clear();
     for (auto iter_member = map_feature_set_.begin(); iter_member != map_feature_set_.end();)
     {
-        auto iter_feature_inmap = std::find_if(trainidx_feature_map_.begin(), trainidx_feature_map_.end(), [&](std::pair<int, long long int> feature_iter) {
-            return feature_iter.second == iter_member->first;
-        });
+        auto iter_feature_inmap = std::find_if(trainidx_feature_map_.begin(), trainidx_feature_map_.end(),
+                                               [&](std::pair<int, long long int> feature_iter) {
+                                                   return feature_iter.second == iter_member->first;
+                                               });
+        // bool find_feature_inmap = false;
+        // for (auto &iter_feature_inmap : trainidx_feature_map_)
+        // {
+        //     if (iter_feature_inmap.second == iter_member->first)
+        //     {
+        //         find_feature_inmap = true;
+        //         break;
+        //     }
+        // }
         if (iter_feature_inmap == trainidx_feature_map_.end())
         {
             auto &feature = iter_member->second;
             if (feature.observation_uv_.size() > 3)
             {
-                if (CheckEnableTriangleate(feature))
+                if (CheckEnableTriangleate(feature) && CheckMotionStatus(feature) && map_observation_set_.size() < 35)
                 {
                     map_observation_set_.insert(*iter_member);
-                    if(map_observation_set_.size() > 100)
-                        return;
                 }
             }
             iter_member = map_feature_set_.erase(iter_member);
             continue;
         }
         iter_member++;
+    }
+
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "observation map:\t" << std::endl;
+        for (auto index : map_observation_set_)
+        {
+            ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
+        }
+        ofs_camera_feature_log_file_ << std::endl;
     }
 }
 
@@ -317,6 +397,36 @@ bool MsckfProcess::CheckEnableTriangleate(const Feature &feature)
  * @param  position_cam0[3]: 输出
  * @retval 
  */
+
+// bool MsckfProcess::TriangulatePoint(const Feature &feature,
+//                                     const Eigen::Isometry3d &cam0_trans,
+//                                     double position_cam0[3])
+// {
+//     const StateId &latest_id = feature.observation_uv_.rbegin()->first;
+
+//     Eigen::Isometry3d cami_trans{Eigen::Isometry3d::Identity()};
+//     cami_trans.rotate(map_state_set_[latest_id].quat_.toRotationMatrix());
+//     cami_trans.pretranslate(map_state_set_[latest_id].position_);
+//     Eigen::Isometry3d cam0_cami = (cam0_trans.inverse() * cami_trans);
+
+//     // const Eigen::Matrix4d mat_tmp = cam0_cami.matrix();
+//     // cv::Mat T2 = (cv::Mat_<double>(3, 4) << mat_tmp(0, 0), mat_tmp(0, 1), mat_tmp(0, 2), mat_tmp(0, 3),
+//     //               mat_tmp(1, 0), mat_tmp(1, 1), mat_tmp(1, 2), mat_tmp(1, 3),
+//     //               mat_tmp(2, 0), mat_tmp(2, 1), mat_tmp(2, 2), mat_tmp(2, 3));
+//     auto &x1 = feature.observation_uv_.begin()->second;
+//     auto &x2 = feature.observation_uv_.rbegin()->second;
+//     Eigen::Matrix3d x1_inv;
+//     x1_inv << -x1.y / x1.x, 1, 0, 1, -x1.x / x1.y, 0, 1, 1 - x1.x - x1.y;
+//     Eigen::Vector3d X2(x2.x, x2.y, 1);
+//     double res = (-x1_inv * cam0_cami.translation())[2] / (x1_inv * cam0_cami.rotation() * X2)[2];
+//     X2 *= res;
+//     Eigen::Vector3d X1 = cam0_cami * X2;
+//     position_cam0[0] = X1[0];
+//     position_cam0[1] = X1[1];
+//     position_cam0[2] = X1[2];
+//     return true;
+// }
+
 bool MsckfProcess::TriangulatePoint(const Feature &feature,
                                     const Eigen::Isometry3d &cam0_trans,
                                     double position_cam0[3])
@@ -326,25 +436,98 @@ bool MsckfProcess::TriangulatePoint(const Feature &feature,
     Eigen::Isometry3d cami_trans{Eigen::Isometry3d::Identity()};
     cami_trans.rotate(map_state_set_[latest_id].quat_.toRotationMatrix());
     cami_trans.pretranslate(map_state_set_[latest_id].position_);
-    Eigen::Isometry3d cam0_cami = (cami_trans.inverse() * cam0_trans).inverse();
-
+    Eigen::Isometry3d cam0_cami = (cam0_trans.inverse() * cami_trans);
+    // ofs_camera_feature_log_file_ << feature.feature_id_ << "  cam0_cami: \n" << std::fixed << std::setprecision(6)
+    //                              << cam0_cami.matrix() << std::endl;
     const Eigen::Matrix4d mat_tmp = cam0_cami.matrix();
     cv::Mat T2 = (cv::Mat_<double>(3, 4) << mat_tmp(0, 0), mat_tmp(0, 1), mat_tmp(0, 2), mat_tmp(0, 3),
                   mat_tmp(1, 0), mat_tmp(1, 1), mat_tmp(1, 2), mat_tmp(1, 3),
                   mat_tmp(2, 0), mat_tmp(2, 1), mat_tmp(2, 2), mat_tmp(2, 3));
 
     cv::Mat T1 = (cv::Mat_<double>(3, 4) << 1, 0, 0, 0,
-                  0, 1, 0, 0, 0, 0, 1, 0);
+                  0, 1, 0, 0,
+                  0, 0, 1, 0);
     cv::Mat pts_4d;
     std::vector<cv::Point2f> pts1, pts2;
     pts1.emplace_back(feature.observation_uv_.begin()->second);
     pts2.emplace_back(feature.observation_uv_.rbegin()->second);
     cv::triangulatePoints(T1, T2, pts1, pts2, pts_4d);
+    // if (camera_feature_log_)
+    // {
+    //     ofs_camera_feature_log_file_ << feature.feature_id_ << "  T1: \n"
+    //                                  << std::fixed << std::setprecision(6)
+    //                                  << T1 << std::endl;
+    //     ofs_camera_feature_log_file_ << "  T2: \n"
+    //                                  << std::fixed << std::setprecision(6)
+    //                                  << T2 << std::endl;
+    //     ofs_camera_feature_log_file_ << pts1 << std::endl;
+    //     ofs_camera_feature_log_file_ << pts2 << std::endl;
+    //     ofs_camera_feature_log_file_ << pts_4d << std::endl;
+    // }
     cv::Mat x = pts_4d.col(0);
-    x /= x.at<float>(3, 0);
+    int coeff = 1;
+    if (((pts1.at(0).x > 0 && x.at<float>(0, 0) < 0) || (pts1.at(0).x < 0 && x.at<float>(0, 0) > 0)) && x.at<float>(3, 0) > 0)
+    {
+        coeff = -1;
+    }
+    x /= (x.at<float>(3, 0) * coeff);
     position_cam0[0] = x.at<float>(0, 0);
     position_cam0[1] = x.at<float>(1, 0);
     position_cam0[2] = x.at<float>(2, 0);
+    return true;
+}
+
+/**
+ * @brief  利用点的匀速变化来探测可能出现的错匹配点
+ * @note   2020-02-03 增加
+ * @param  &feature: 待判断的特征点
+ * @retval 
+ */
+bool MsckfProcess::CheckMotionStatus(const Feature &feature)
+{
+    const auto &observation = feature.raw_uv_;
+    std::vector<double> x_vector, y_vector;
+    for (auto iter = observation.begin(); iter != (observation.end()); iter++)
+    {
+        auto iter_2 = iter;
+        iter_2++;
+        if (iter_2 == observation.end())
+            break;
+        x_vector.emplace_back(iter->second.x - iter_2->second.x);
+        y_vector.emplace_back(iter->second.y - iter_2->second.y);
+    }
+    int size_vector = x_vector.size();
+    if (size_vector < 3)
+    {
+        return false;
+    }
+    double x_average = std::accumulate(x_vector.begin(), x_vector.end(), 0) / size_vector;
+    double y_average = std::accumulate(y_vector.begin(), y_vector.end(), 0) / size_vector;
+    double x_std = 0.0, y_std = 0.0;
+    for (size_t i = 0; i < size_vector; i++)
+    {
+        x_std += pow(x_vector[i] - x_average, 2) / size_vector;
+        y_std += pow(y_vector[i] - y_average, 2) / size_vector;
+    }
+    x_std = sqrt(x_std);
+    y_std = sqrt(y_std);
+    // LOG(INFO) << "std:\t" << x_std << "\t" << y_std << std::endl;
+    // LOG(INFO) << "average:\t" << x_average << "\t" << y_average << std::endl;
+    if (x_std > 10 || y_std > 8)
+    {
+        return false;
+    }
+    for (size_t i = 0; i < size_vector; i++)
+    {
+        if (x_vector[i] > x_average + (x_std * 3) || x_vector[i] < x_average - (x_std * 3))
+        {
+            return false;
+        }
+        if (y_vector[i] > y_average + (y_std * 3) || y_vector[i] < y_average - (y_std * 3))
+        {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -365,10 +548,12 @@ bool MsckfProcess::LMOptimizatePosition(Feature &feature)
     cam0_tranformation.pretranslate(map_state_set_[feature.observation_uv_.begin()->first].position_);
     double position_world[3] = {1.0, 1.0, 1.0};
     TriangulatePoint(feature, cam0_tranformation, position_world);
-    if (position_world[2] < -1.0 || position_world[2] > 50.0)
-    {
-        return false;
-    }
+    // if (position_world[2] < -1.0 || position_world[2] > 200.0)
+    // {
+    //     // LOG(ERROR) << feature.feature_id_ << "\t" << position_world[2] << std::endl;
+    //     // ofs_camera_feature_log_file_ << "false " << feature.feature_id_ << "\t" << position_world[2] << std::endl;
+    //     return false;
+    // }
     for (auto &observation : feature.observation_uv_)
     {
         auto &camera_id = observation.first;
@@ -377,19 +562,31 @@ bool MsckfProcess::LMOptimizatePosition(Feature &feature)
         Eigen::Isometry3d cami_tranformation{Eigen::Isometry3d::Identity()};
         cami_tranformation.rotate(camera_state.quat_.toRotationMatrix());
         cami_tranformation.pretranslate(camera_state.position_);
-        Eigen::Isometry3d cam0_cami = (cami_tranformation.inverse() * cam0_tranformation).inverse();
+        Eigen::Isometry3d cam0_cami = (cam0_tranformation.inverse() * cami_tranformation);
         ceres::CostFunction *cost_function = ReprojectionError::Create(observation_point, cam0_cami);
         problem.AddResidualBlock(cost_function, NULL, position_world);
     }
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
+    options.max_num_iterations = 12;
     ceres::Solver::Summary summary;
     // options.minimizer_progress_to_stdout = true;
     ceres::Solve(options, &problem, &summary);
+    if (position_world[2] > 240 || position_world[2] < 2 || summary.num_successful_steps > 12)
+        return false;
 
     feature.position_world_ << position_world[0], position_world[1], position_world[2];
-    if (feature.position_world_.norm() > 50)
-        return false;
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "LM result: \t" << feature.feature_id_ << "\t" << feature.position_world_.transpose() << std::endl;
+        for (auto iter = feature.raw_uv_.begin(); iter != feature.raw_uv_.end(); iter++)
+        {
+            const auto &camera_state_tmp = map_state_set_[iter->first];
+            ofs_camera_feature_log_file_ << "uv_feature_pixel: \t" << camera_state_tmp.state_id_ << "\t"
+                                         << camera_state_tmp.time_.SecondOfWeek() << "\t"
+                                         << iter->second << std::endl;
+        }
+    }
     feature.position_world_ = cam0_tranformation * feature.position_world_;
     return true;
 }
@@ -415,11 +612,17 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
     Eigen::MatrixXd H_feature = Eigen::MatrixXd::Zero(observe_feature_count * 2, 3);
 
     int row_index = 0;
+    auto &point_coor_world = feature.position_world_;
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "measure feature position: " << feature.feature_id_ << " "
+                                     << std::fixed << std::setprecision(4)
+                                     << feature.position_world_.transpose() << std::endl;
+    }
     for (auto member : feature.observation_uv_)
     {
         auto &camera_state = map_state_set_[member.first];
         auto &measure = member.second;
-        auto &point_coor_world = feature.position_world_;
         auto iter_camera_index = state_index.camera_state_index.find(camera_state.state_id_);
         if (iter_camera_index == state_index.camera_state_index.end())
         {
@@ -431,12 +634,19 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
         Eigen::MatrixXd J1 = Eigen::MatrixXd::Zero(2, 3);
         Eigen::MatrixXd J2_1 = Eigen::MatrixXd::Zero(3, 6);
         Eigen::MatrixXd J2_2 = Eigen::MatrixXd::Zero(3, 3);
-        double z_1 = 1.0 / point_coor_world(2);
-        J1 << z_1, 0, -point_coor_world(0) * z_1 * z_1,
-            0, z_1, -point_coor_world(1) * z_1 * z_1;
-        J2_1.block<3, 3>(0, 0) = camera_state.quat_.toRotationMatrix().transpose() *
+        // double z_1 = 1.0 / point_coor_world(2);
+        // J1 << z_1, 0, -point_coor_world(0) * z_1 * z_1,
+        //     0, z_1, -point_coor_world(1) * z_1 * z_1;
+        double z_1 = 1.0 / point_f_c(2);
+        J1 << z_1, 0, -point_f_c(0) * z_1 * z_1,
+            0, z_1, -point_f_c(1) * z_1 * z_1;
+        //! 2020-02-02核实系数反了，调整重新测试
+        J2_1.block<3, 3>(0, 3) = camera_state.quat_.toRotationMatrix().transpose() *
                                  utiltool::skew(l_cf_w);
-        J2_1.block<3, 3>(0, 3) = -1 * camera_state.quat_.toRotationMatrix().transpose();
+        J2_1.block<3, 3>(0, 0) = -1 * camera_state.quat_.toRotationMatrix().transpose();
+        // J2_1.block<3, 3>(0, 0) = camera_state.quat_.toRotationMatrix().transpose() *
+        //                          utiltool::skew(l_cf_w);
+        // J2_1.block<3, 3>(0, 3) = -1 * camera_state.quat_.toRotationMatrix().transpose();
         J2_2 = camera_state.quat_.toRotationMatrix().transpose();
         H_feature.block<2, 3>(row_index, 0) = J1 * J2_2;
         H_state.block<2, 6>(row_index, iter_camera_index->second) = J1 * J2_1;
@@ -444,12 +654,29 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
             measure.y - point_f_c(1) / point_f_c(2);
         row_index += 2;
     }
-
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "Hfeature:" << std::endl
+                                     << std::setprecision(8) << H_feature << std::endl;
+        ofs_camera_feature_log_file_ << "Hstate:" << std::endl
+                                     << std::setprecision(8) << H_state << std::endl;
+        ofs_camera_feature_log_file_ << "z_measure:" << std::endl
+                                     << std::setprecision(8) << z_measure << std::endl;
+    }
     //* SVD求解Hf的左零空间，消除Hf
     Eigen::JacobiSVD<Eigen::MatrixXd> svd_helper(H_feature, Eigen::ComputeFullU | Eigen::ComputeThinV);
     Eigen::MatrixXd A = svd_helper.matrixU().rightCols(observe_feature_count * 2 - 3);
     H_state = A.transpose() * H_state;
     z_measure = A.transpose() * z_measure;
+    if (camera_feature_log_)
+    {
+        ofs_camera_feature_log_file_ << "AT:" << std::endl
+                                     << std::setprecision(8) << A.transpose() << std::endl;
+        ofs_camera_feature_log_file_ << "Hstate2:" << std::endl
+                                     << std::setprecision(8) << H_state << std::endl;
+        ofs_camera_feature_log_file_ << "z_measure2:" << std::endl
+                                     << std::setprecision(8) << z_measure << std::endl;
+    }
     return true;
 }
 
@@ -479,14 +706,16 @@ void MsckfProcess::ReviseCameraState(const Eigen::VectorXd &dx_camera)
 {
     int camera_state_count = 0;
     // map_state_set_.size();
+    assert(dx_camera.size() == map_state_set_.size() * 6);
     for (auto &camera_state : map_state_set_)
     {
-        Eigen::Vector3d theta_camera = dx_camera.segment<3>(camera_state_count * 6);
-        Eigen::Vector3d t_camera = dx_camera.segment<3>(camera_state_count * 6 + 3);
+        Eigen::Vector3d theta_camera = dx_camera.segment<3>(camera_state_count * 6 + 3);
+        Eigen::Vector3d t_camera = dx_camera.segment<3>(camera_state_count * 6);
         camera_state_count++;
         auto camera_quat_delta = RotationVector2Quaternion(theta_camera);
         camera_state.second.quat_ = camera_quat_delta * camera_state.second.quat_;
-        camera_state.second.position_ += t_camera;
+        camera_state.second.position_ -= t_camera;
+        camera_state.second.quat_.normalize();
     }
     return;
 }
@@ -549,6 +778,7 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
             iter_feature->second.is_initialized_ = true;
 
             MeasurementJacobian(iter_feature->second, H_state, z_measure);
+            // z_measure *= -1; //TODO 测试
             Eigen::VectorXd dx = MeasurementUpdate(H_state, z_measure);
             filter_->ReviseState(navinfo, dx.head(filter_->GetStateIndex().total_state));
             ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
@@ -615,17 +845,26 @@ void MsckfProcess::RemoveRedundantCamStates(utiltool::NavInfo &navinfo)
                 feature.is_initialized_ = false;
                 map_observation_set_[tmp_feature.feature_id_] = tmp_feature;
             }
+            auto camera_id = iter_cam1->first;
             feature.observation_uv_.erase(iter_cam1);
+            feature.raw_uv_.erase(camera_id);
+
+            camera_id = iter_cam2->first;
             feature.observation_uv_.erase(iter_cam2);
+            feature.raw_uv_.erase(camera_id);
             continue;
         }
         if (iter_cam1 != feature.observation_uv_.end())
         {
+            auto camera_id = iter_cam1->first;
             feature.observation_uv_.erase(iter_cam1);
+            feature.raw_uv_.erase(camera_id);
         }
         if (iter_cam2 != feature.observation_uv_.end())
         {
+            auto camera_id = iter_cam2->first;
             feature.observation_uv_.erase(iter_cam2);
+            feature.raw_uv_.erase(camera_id);
         }
     }
 

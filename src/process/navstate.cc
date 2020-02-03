@@ -211,6 +211,10 @@ void State::StartProcessing()
             ptr_gnss_data = nullptr;
             // ofs_result_output_ << nav_info_ << std::endl;
             // LOG(INFO) << nav_info_.time_ << std::endl;
+            if(camera_enable)
+            {
+                msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
+            }
         }
         else if (ptr_camera_data != nullptr)
         {
