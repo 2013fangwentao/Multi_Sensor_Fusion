@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Tue Feb 3 下午9:59:36 2020 little fang
+** Last update Mon Feb 9 下午12:55:52 2020 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -16,6 +16,7 @@
 #include "navtime.h"
 #include "navconfig.hpp"
 #include "filter/navfilter.h"
+#include "navattitude.hpp"
 #include "feature.hpp"
 #include "imageprocess.h"
 #include "Eigen/Dense"
@@ -23,6 +24,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/features2d/features2d.hpp>
 #include <ceres/ceres.h>
+#include <ceres/rotation.h>
 #include <map>
 
 namespace mscnav
@@ -41,7 +43,7 @@ public:
     MsckfProcess(const KalmanFilter::Ptr &filter);
     ~MsckfProcess() {}
 
-    bool ProcessImage(const cv::Mat &img1, const utiltool::NavTime &time, utiltool::NavInfo &navinfo);
+    bool ProcessImage(const cv::Mat &img_raw, const utiltool::NavTime &time, utiltool::NavInfo &navinfo);
     void ReviseCameraState(const Eigen::VectorXd &dx_camera);
 
 private:
@@ -65,12 +67,17 @@ private:
 
     void RemoveCameraState();
     void RemoveRedundantCamStates(utiltool::NavInfo &navinfo);
+    bool GatingTest(const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const int &dof);
+
+    void NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distorted,
+                      std::vector<cv::Point2f> &keypoint_undistorted,
+                      const cv::Mat &camera_mat_);
 
 private:
     std::vector<cv::DMatch> matches_;
     cv::Mat pre_frame_descriptors_;
     cv::Mat curr_frame_descriptors_;
-    Eigen::Isometry3d cam_imu_tranformation_; //* coordinate from imu to camera
+    Eigen::Isometry3d cam_imu_tranformation_; 
     std::vector<cv::KeyPoint> pre_frame_keypoints_;
     std::vector<cv::KeyPoint> curr_frame_keypoints_;
 
@@ -98,19 +105,52 @@ struct ReprojectionError
 {
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
+    //  // ReprojectionError(const cv::Point2f &measure_point_uv,
+    //  //                   const Eigen::Isometry3d &cam0_cami_transform) : image_uv(measure_point_uv),
+    //  //                                                                   cam0_cami(cam0_cami_transform) {}
+    //  // template <typename T>
+    //  // bool operator()(const T *const feature_point_world, T *residuals) const
+    //  // {
+    //  //     Eigen::Matrix<T, 3, 1> point;
+    //  //     point << feature_point_world[0], feature_point_world[1], feature_point_world[2];//
+
+    //  //     point = cam0_cami.inverse() * point;
+    //  //     T point_reproject_image[2] = {point(0) / point(2), point(1) / point(2)};
+    //  //     residuals[0] = point_reproject_image[0] - T(image_uv.x);
+    //  //     residuals[1] = point_reproject_image[1] - T(image_uv.y);
+    //  //     return true;
+    //  // }
+
     ReprojectionError(const cv::Point2f &measure_point_uv,
-                      const Eigen::Isometry3d &cam0_cami_transform) : image_uv(measure_point_uv),
-                                                                      cam0_cami(cam0_cami_transform) {}
+                      const Eigen::Isometry3d &cam0_cami_transform) : image_uv(measure_point_uv)
+    {
+        Eigen::Isometry3d cami_cam0 = cam0_cami_transform.inverse();
+        quat = utiltool::attitude::RotationMartix2Quaternion(cami_cam0.rotation());
+        cam0_cami_translation[0] = cami_cam0.translation()(0);
+        cam0_cami_translation[1] = cami_cam0.translation()(1);
+        cam0_cami_translation[2] = cami_cam0.translation()(2);
+    }
     template <typename T>
     bool operator()(const T *const feature_point_world, T *residuals) const
     {
-        Eigen::Matrix<T, 3, 1> point;
-        point << feature_point_world[0], feature_point_world[1], feature_point_world[2];
+        T point[3] = {T(feature_point_world[0]), T(feature_point_world[1]), T(1.0)};
+        T point_result[3];
+        T cam0_cami_quat[4] = {T(quat.w()),
+                               T(quat.x()),
+                               T(quat.y()),
+                               T(quat.z())};
+        T point_translation[3] = {T(feature_point_world[2] * cam0_cami_translation[0]),
+                                  T(feature_point_world[2] * cam0_cami_translation[1]),
+                                  T(feature_point_world[2] * cam0_cami_translation[2])};
+        ceres::QuaternionRotatePoint(cam0_cami_quat, point, point_result);
+        point_result[0] += point_translation[0];
+        point_result[1] += point_translation[1];
+        point_result[2] += point_translation[2];
 
-        point = cam0_cami.inverse() * point;
-        T point_reproject_image[2] = {point(0) / point(2), point(1) / point(2)};
-        residuals[0] = point_reproject_image[0] - T(image_uv.x);
-        residuals[1] = point_reproject_image[1] - T(image_uv.y);
+        T point_reproject_image[2] = {T(point_result[0] / point_result[2]),
+                                      T(point_result[1] / point_result[2])};
+        residuals[0] = -point_reproject_image[0] + T(image_uv.x);
+        residuals[1] = -point_reproject_image[1] + T(image_uv.y);
         return true;
     }
 
@@ -121,7 +161,9 @@ struct ReprojectionError
     }
 
     const cv::Point2f image_uv;
-    const Eigen::Isometry3d cam0_cami;
+    Eigen::Quaterniond quat;
+    double cam0_cami_translation[3];
+    // const Eigen::Isometry3d cam0_cami;
 };
 } // namespace camera
 } // namespace mscnav

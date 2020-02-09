@@ -19,7 +19,8 @@ SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include 
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include
+                    /usr/include/suitesparse
                     ${PROJECT_SOURCE_DIR}/submodules/tools/include
                     ${PROJECT_SOURCE_DIR}/thirdparty
                     ${EIGEN3_INCLUDE_DIRS}

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Sat Jul 13 下午10:53:27 2019 little fang
-** Last update Mon Aug 25 下午9:19:08 2019 little fang
+** Last update Mon Feb 9 下午1:40:42 2020 little fang
 */
 
 #include "imu/navmech.h"
@@ -139,7 +139,6 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     F.block<3, 3>(0, 3) = Matrix3d::Identity();
 
     //速度对应的误差方程
-    // TODO 速度项对应的状态矩阵系数需要细化
     // DONE 初步核实完毕,需要再核实
     F.block<3, 3>(3, 3) = utiltool::skew(wiee) * -2.0;
     F.block<3, 3>(3, 6) = utiltool::skew(Cbe * fb);
@@ -161,7 +160,6 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     //IMU参数
     F.block<3, 3>(9, 9) = Matrix3d::Identity() * (-1 / corr_time_of_gyro_bias);
     F.block<3, 3>(12, 12) = Matrix3d::Identity() * (-1 / corr_time_of_acce_bias);
-
     return MatrixXd::Identity(rows, cols) + F * dt;
 }
 } // namespace

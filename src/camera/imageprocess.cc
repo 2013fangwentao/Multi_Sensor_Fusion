@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Fri Nov 7 上午9:34:37 2019 little fang
+** Last update Fri Feb 6 下午1:15:07 2020 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -22,7 +22,7 @@ namespace camera
 bool ImageProcess::is_initialed_(false);
 std::shared_ptr<ORBextractor> ImageProcess::orb_extractor_(nullptr);
 cv::Ptr<cv::DescriptorMatcher> ImageProcess::matcher_(cv::DescriptorMatcher::create("BruteForce-Hamming"));
-cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create());
+cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create(1200));
 
 void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
                               int ini_th_fast, int min_th_fast)
@@ -55,8 +55,8 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
         LOG(ERROR) << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl;
-    (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
-    // cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
+    // (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
+    cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
     return;
 }
 
@@ -90,7 +90,7 @@ void ImageProcess::FreatureMatch(const std::vector<cv::KeyPoint> &keypoints1,
     double mean_dist = std::accumulate(tmp_matches.begin(), tmp_matches.end(), 0.0, [](double mean_dist, cv::DMatch match) {
         return mean_dist + match.distance;
     });
-    float threshold_distance = 0.5 * mean_dist / tmp_matches.size();
+    float threshold_distance = mean_dist / tmp_matches.size();
     threshold_distance = default_min_distance > threshold_distance ? default_min_distance : threshold_distance;
 
 LEAP:
