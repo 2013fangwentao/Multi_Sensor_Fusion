@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午5:13:31 2019 little fang
-** Last update Fri Aug 8 下午8:45:35 2019 little fang
+** Last update Tue Feb 10 下午12:34:28 2020 little fang
 */
 
 #ifndef IMAGE_PROCESS_H_
@@ -41,17 +41,46 @@ public:
                                    std::vector<cv::KeyPoint> &keypoints,
                                    cv::OutputArray descriptors);
 
+    static void GoodFreatureDetect(const cv::Mat &image,
+                                   std::vector<unsigned long long int> &keypoints_id,
+                                   std::vector<cv::Point2f> &keypoints);
+
+    static void LKTrack(const cv::Mat &pre_image,
+                        const cv::Mat &curr_image,
+                        // const Eigen::Matrix3d &rotation,
+                        std::vector<unsigned long long int> &keypoints_id,
+                        std::vector<cv::Point2f> &pre_keypoints,
+                        std::vector<cv::Point2f> &curr_keypoints);
+
     static void FreatureMatch(const std::vector<cv::KeyPoint> &keypoints1,
                               const cv::Mat &descriptors1,
                               const std::vector<cv::KeyPoint> &keypoints2,
                               const cv::Mat &descriptors2,
                               std::vector<cv::DMatch> &matches,
                               float default_min_distance = 40.0);
+                              
+    static void TwoPointRansac(const std::vector<cv::Point2f> &pts1,
+                               const std::vector<cv::Point2f> &pts2,
+                               const cv::Matx33f &R_p_c,
+                               const cv::Mat &intrinsics,
+                               const cv::Mat &distortion_coeffs,
+                               const double &inlier_error,
+                               const double &success_probability,
+                               std::vector<int> &inlier_markers);
 
 private:
     static void OutlierRemove(const std::vector<cv::KeyPoint> &keypoints1,
                               const std::vector<cv::KeyPoint> &keypoints2,
                               std::vector<cv::DMatch> &matches);
+
+    static void OutlierRemove(std::vector<cv::Point2f> &keypoints1,
+                              std::vector<cv::Point2f> &keypoints2,
+                                // const Eigen::Matrix3d &rotation,
+                              std::vector<unsigned long long int> &keypoints_id);
+    static void rescalePoints(std::vector<cv::Point2f> &pts1,
+                              std::vector<cv::Point2f> &pts2,
+                              float &scaling_factor);
+
 };
 
 } // namespace camera

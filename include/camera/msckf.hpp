@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Mon Feb 9 下午12:55:52 2020 little fang
+** Last update Tue Feb 10 下午12:33:50 2020 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -72,19 +72,26 @@ private:
     void NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distorted,
                       std::vector<cv::Point2f> &keypoint_undistorted,
                       const cv::Mat &camera_mat_);
+    void Test();
 
 private:
     std::vector<cv::DMatch> matches_;
     cv::Mat pre_frame_descriptors_;
     cv::Mat curr_frame_descriptors_;
-    Eigen::Isometry3d cam_imu_tranformation_; 
-    std::vector<cv::KeyPoint> pre_frame_keypoints_;
-    std::vector<cv::KeyPoint> curr_frame_keypoints_;
+    Eigen::Isometry3d cam_imu_tranformation_;
+    // std::vector<cv::KeyPoint> pre_frame_keypoints_;
+    // std::vector<cv::KeyPoint> curr_frame_keypoints_;
+    std::vector<cv::Point2f> pre_frame_keypoints_;
+    std::vector<cv::Point2f> curr_frame_keypoints_;
+    std::vector<unsigned long long int> keypoints_id_;
+    std::map<unsigned long long int,FeatureId> keypoints_featureid_;
 
     std::map<FeatureId, Feature> map_feature_set_;
     std::map<FeatureId, Feature> map_observation_set_;
     std::map<StateId, CameraState> map_state_set_;
 
+    std::vector<int> inlier_markers;
+    
 private:
     bool camera_feature_log_ = false;
     bool is_first_ = true;

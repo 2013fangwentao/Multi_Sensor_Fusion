@@ -199,47 +199,6 @@ void State::StartProcessing()
     }
     while (true)
     {
-
-        {
-            // if (ptr_gnss_data != nullptr)
-            // {
-            //     // double dt = ptr_gnss_data->get_time() - latest_update_time_;
-            //     // Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
-            //     // filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
-            //     gps_process_->processing(ptr_gnss_data, nav_info_, dx);
-            //     ReviseState(dx);
-            //     // PHI = Eigen::MatrixXd::Identity(state_count, state_count);
-            //     latest_update_time_ = ptr_gnss_data->get_time();
-            //     ptr_gnss_data = nullptr;
-            //     // ofs_result_output_ << nav_info_ << std::endl;
-            //     // LOG(INFO) << nav_info_.time_ << std::endl;
-            //     if(camera_enable)
-            //     {
-            //         msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
-            //     }
-            // }
-            // else if (ptr_camera_data != nullptr)
-            // {
-
-            //     msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
-            //     ptr_camera_data = nullptr;
-
-            // }
-            // else if (ptr_curr_imu_data != nullptr)
-            // {
-            //     Eigen::MatrixXd phi;
-            //     double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
-            //     (*ptr_curr_imu_data) = Compensate(*ptr_curr_imu_data, nav_info_, dt);
-            //     nav_info_ = navmech::MechanicalArrangement(*ptr_pre_imu_data, *ptr_curr_imu_data, nav_info_, phi);
-            //     // double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
-            //     Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
-            //     filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
-            //     /*考虑为一步预测 */
-            //     // PHI *= phi;
-            //     ptr_pre_imu_data = ptr_curr_imu_data;
-            //     ptr_curr_imu_data = nullptr;
-            // }
-        }
         if (ptr_curr_imu_data != nullptr)
         {
             Eigen::MatrixXd phi;
@@ -254,7 +213,7 @@ void State::StartProcessing()
         {
             /* time update */
             double dt = base_data->get_time() - latest_update_time_;
-            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt * 1.5;
+            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
             filter_->TimeUpdate(PHI, Q, base_data->get_time());
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             latest_update_time_ = base_data->get_time();
@@ -289,7 +248,8 @@ void State::StartProcessing()
             auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
             output_nav.vel_ = earth::CalCe2n(blh(0), blh(1)) * earth::CorrectLeverarmVel(output_nav);
             ofs_result_output_ << output_nav << std::endl;
-            LOG_EVERY_N(INFO, 10) << output_nav.time_ << std::endl;
+            if (fabs(int(output_nav.time_.SecondOfWeek()) - output_nav.time_.SecondOfWeek() < 0.04))
+                LOG(ERROR) << output_nav.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */

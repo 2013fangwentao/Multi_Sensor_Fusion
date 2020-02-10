@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Mon Feb 9 下午1:07:58 2020 little fang
+** Last update Tue Feb 10 下午3:58:08 2020 little fang
 */
 
 #include "navattitude.hpp"
@@ -16,6 +16,7 @@
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
+#include <opencv2/core/eigen.hpp>
 
 using namespace utiltool::attitude;
 using namespace utiltool;
@@ -81,70 +82,72 @@ MsckfProcess::MsckfProcess(const KalmanFilter::Ptr &filter) : filter_{filter}
     // cam_imu_tranformation_.translate(translation);
 }
 
+// void MsckfProcess::FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo)
+// {
+//     ImageProcess::OrbFreatureExtract(img1, pre_frame_keypoints_, pre_frame_descriptors_);
+//     AguementedState(navifo);
+//     return;
+// }
+
 void MsckfProcess::FirstImageProcess(const cv::Mat &img1, const utiltool::NavInfo &navifo)
 {
-    ImageProcess::OrbFreatureExtract(img1, pre_frame_keypoints_, pre_frame_descriptors_);
+    ImageProcess::GoodFreatureDetect(img1, keypoints_id_, pre_frame_keypoints_);
     AguementedState(navifo);
     return;
 }
 
 bool MsckfProcess::ProcessImage(const cv::Mat &img_raw, const utiltool::NavTime &time, utiltool::NavInfo &navinfo)
 {
-    cv::Mat img1;
-    cv::undistort(img_raw, img1, camera_mat_, dist_coeffs_);
-    // cv::imshow("img1", img1);
-    // cv::waitKey(1);
-    // return false;
+    cv::Mat img1 = img_raw.clone();
+    // cv::undistort(img_raw, img1, camera_mat_, dist_coeffs_);
 
     static int max_camera_size = config_->get<int>("max_camera_sliding_window");
-    static int static_detect_count = 0;
     curr_time_ = time;
     if (is_first_)
     {
-        pre_img = img1.clone();
         FirstImageProcess(img1, navinfo);
+        cv::swap(pre_img, img1);
         is_first_ = false;
         return false;
     }
 
-    //** 特征点提取
-    ImageProcess::OrbFreatureExtract(img1,
-                                     curr_frame_keypoints_,
-                                     curr_frame_descriptors_);
-    cv::Mat key_image;
-    cv::drawKeypoints(img1, curr_frame_keypoints_, key_image, cv::Scalar_<double>::all(-1), cv::DrawMatchesFlags::DEFAULT);
-    cv::imshow("key points", key_image);
-    cv::waitKey(1);
-
-    //** 与前一帧图像匹配特征点
-    ImageProcess::FreatureMatch(pre_frame_keypoints_,
-                                pre_frame_descriptors_,
-                                curr_frame_keypoints_,
-                                curr_frame_descriptors_,
-                                matches_, 20.0);
-    // cv::drawMatches(pre_img, pre_frame_keypoints_, img1, curr_frame_keypoints_, matches_, key_image);
-    // cv::imshow("匹配数据", key_image);
-    // cv::waitKey(1);
-    pre_img = img1.clone();
-    // if (matches_.size() > 500)
-    // {
-    //     static_detect_count++;
-    //     if (static_detect_count > 30)
-    //     {
-    //         static_detect_count = 0;
-    //     }
-    //     if (static_detect_count > 10)
-    //     {
-    //         return false;
-    //     }
-    // }
-    // else
-    // {
-    //     static_detect_count = 0;
-    // }
-
     //** 增加当前camera State到系统中去.
     AguementedState(navinfo);
+
+    // 光流追踪
+    ImageProcess::LKTrack(pre_img, img1, keypoints_id_, pre_frame_keypoints_, curr_frame_keypoints_);
+
+    // 外点剔除
+    // LOG(INFO) << map_state_set_.size() << std::endl;
+    auto curr_camera_state = map_state_set_.rbegin();
+    auto pre_camera_state = curr_camera_state;
+    pre_camera_state++;
+    Eigen::Matrix3d rotation_imu = attitude::Quaternion2RotationMatrix(
+        curr_camera_state->second.quat_.conjugate() * pre_camera_state->second.quat_);
+    cv::Mat R_c;
+    cv::eigen2cv(rotation_imu, R_c);
+
+    ImageProcess::TwoPointRansac(pre_frame_keypoints_,
+                                 curr_frame_keypoints_,
+                                 R_c,
+                                 camera_mat_,
+                                 dist_coeffs_,
+                                 1,
+                                 0.999,
+                                 inlier_markers);
+    assert(inlier_markers.size() == pre_frame_keypoints_.size());
+
+    cv::Mat key_image = img1.clone();
+    for (int i = 0; i < curr_frame_keypoints_.size(); i++)
+    {
+        if (inlier_markers[i] == 0)
+            continue;
+        circle(key_image, curr_frame_keypoints_[i], 1, cv::Scalar(0, 255, 0), 2, 8, 0);
+    }
+    cv::imshow("key_image", key_image);
+    cv::waitKey(1);
+
+    // Test();
 
     //** 匹配的特征加入观测序列中
     AddObservation();
@@ -162,6 +165,11 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img_raw, const utiltool::NavTime 
     {
         RemoveRedundantCamStates(navinfo);
     }
+
+    ImageProcess::GoodFreatureDetect(img1, keypoints_id_, curr_frame_keypoints_);
+
+    std::swap(pre_frame_keypoints_, curr_frame_keypoints_);
+    cv::swap(pre_img, img1);
     return true;
 }
 
@@ -191,11 +199,11 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
     // LOG(INFO) << "camera rotation:" << att.transpose() * constant::rad2deg << std::endl
     //           << "imu rotation:" << (navinfo.att_).transpose() * constant::rad2deg << std::endl;
 
-    if (camera_feature_log_)
-    {
-        ofs_camera_feature_log_file_ << cam_state.time_ << cam_state << std::endl;
-        ofs_camera_feature_log_file_ << "map camera: " << map_state_set_ << std::endl;
-    }
+    // if (camera_feature_log_)
+    // {
+    //     ofs_camera_feature_log_file_ << cam_state.time_ << cam_state << std::endl;
+    //     ofs_camera_feature_log_file_ << "map camera: " << map_state_set_ << std::endl;
+    // }
 
     //* 增广对应状态的方差信息到滤波的方程协方差矩阵中
     utiltool::StateIndex &index = filter_->GetStateIndex();
@@ -237,6 +245,98 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
     return;
 }
 
+// /**
+//  * @brief  增加匹配到的特征点到观测序列中去
+//  *         1.如果当前匹配的特征点在上一帧中存在直接加入观测值到其observation中
+//  *         2.如果是全新的特征点，则构建新的特征点，添加前后两帧图像的观测数据，并增加到feature的序列中去
+//  * @note
+//  *          2019.11.07 第一次调试TODO内容:第一个camera状态观测不对
+//  * @retval None
+//  */
+// void MsckfProcess::AddObservation()
+// {
+//         std::map<int, FeatureId> curr_trainidx_feature_map_;
+//         auto curr_camera_state = map_state_set_.end();
+//         curr_camera_state--;
+//         auto pre_camera_state = curr_camera_state;
+//         pre_camera_state--;
+
+//         int track_num = 0;
+
+//         std::vector<cv::Point2f> keypoint_distorted, keypoint_undistorted;
+//         for (auto &member : matches_)
+//         {
+//             auto iter_trainIdx = curr_trainidx_feature_map_.find(member.trainIdx);
+//             if (iter_trainIdx != curr_trainidx_feature_map_.end())
+//                 continue;
+//             auto iter_feature = trainidx_feature_map_.find(member.queryIdx);
+//             if (iter_feature == trainidx_feature_map_.end()) // 新的特征点，创建实例对象，并赋值
+//             {
+//                 Feature feature;
+//                 keypoint_distorted.clear();
+//                 keypoint_undistorted.clear();
+//                 // keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt);
+//                 keypoint_distorted.push_back(pre_frame_keypoints_[member.queryIdx].pt); //* 2020-02-01 核实trainIdx和queryIdx通过
+//                 keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+//                 // cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+//                 NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
+
+//                 double diff_x = fabs(keypoint_undistorted[0].x - keypoint_undistorted[1].x);
+//                 double diff_y = fabs(keypoint_undistorted[0].y - keypoint_undistorted[1].y);
+//                 if (diff_y > 0.04 || diff_x > 0.12)
+//                     continue;
+
+//                 feature.observation_uv_[pre_camera_state->first] = keypoint_undistorted[0];
+//                 feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
+
+//                 feature.raw_uv_[pre_camera_state->first] = keypoint_distorted[0];
+//                 feature.raw_uv_[curr_camera_state->first] = keypoint_distorted[1];
+
+//                 map_feature_set_.insert(std::make_pair(feature.feature_id_, feature));
+//                 // map_feature_set_[feature.feature_id_] = feature;
+//                 curr_trainidx_feature_map_[member.trainIdx] = feature.feature_id_;
+//                 curr_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
+//                 pre_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
+//             }
+//             else // 已经存在的特征点，直接在观测序列中加入当前观测
+//             {
+//                 keypoint_distorted.clear();
+//                 keypoint_undistorted.clear();
+//                 keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
+//                 // cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+//                 NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
+
+//                 auto &pts = map_feature_set_[iter_feature->second].observation_uv_[pre_camera_state->first];
+//                 double diff_x = fabs(keypoint_undistorted[0].x - pts.x);
+//                 double diff_y = fabs(keypoint_undistorted[0].y - pts.y);
+//                 if (diff_y > 0.04 || diff_x > 0.12)
+//                     continue;
+
+//                 map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
+//                 map_feature_set_[iter_feature->second].raw_uv_[curr_camera_state->first] = keypoint_distorted[0];
+
+//                 curr_trainidx_feature_map_[member.trainIdx] = iter_feature->second;
+//                 curr_camera_state->second.feature_id_set_.push_back(iter_feature->second);
+//                 track_num++;
+//             }
+//         }
+
+//         if (camera_feature_log_)
+//         {
+//             ofs_camera_feature_log_file_ << "feature map:\t" << std::endl;
+//             for (auto index : map_feature_set_)
+//             {
+//                 ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
+//             }
+//             ofs_camera_feature_log_file_ << std::endl;
+//         }
+
+//         trainidx_feature_map_ = curr_trainidx_feature_map_;
+//         pre_frame_descriptors_ = curr_frame_descriptors_.clone();
+//         pre_frame_keypoints_ = curr_frame_keypoints_;
+//         tracking_rate_ = (double)(track_num) / (double)(curr_camera_state->second.feature_id_set_.size());
+// }
+
 /**
  * @brief  增加匹配到的特征点到观测序列中去
  *         1.如果当前匹配的特征点在上一帧中存在直接加入观测值到其observation中            
@@ -247,36 +347,40 @@ void MsckfProcess::AguementedState(const utiltool::NavInfo &navinfo)
  */
 void MsckfProcess::AddObservation()
 {
-    std::map<int, FeatureId> curr_trainidx_feature_map_;
+    std::map<unsigned long long int, FeatureId> curr_trainidx_feature_map_;
     auto curr_camera_state = map_state_set_.end();
     curr_camera_state--;
     auto pre_camera_state = curr_camera_state;
     pre_camera_state--;
 
     int track_num = 0;
-
+    int size = keypoints_id_.size();
+    assert(size == curr_frame_keypoints_.size());
+    assert(size == pre_frame_keypoints_.size());
     std::vector<cv::Point2f> keypoint_distorted, keypoint_undistorted;
-    for (auto &member : matches_)
+    ofs_camera_feature_log_file_ << "outline:" << std::endl;
+    for (size_t i = 0; i < size; i++)
     {
-        auto iter_trainIdx = curr_trainidx_feature_map_.find(member.trainIdx);
-        if (iter_trainIdx != curr_trainidx_feature_map_.end())
+        ofs_camera_feature_log_file_ << inlier_markers.at(i) << " ";
+        if ((i + 1) % 10 == 0)
+            ofs_camera_feature_log_file_ << std::endl;
+        if (inlier_markers.at(i) == 0)
             continue;
-        auto iter_feature = trainidx_feature_map_.find(member.queryIdx);
-        if (iter_feature == trainidx_feature_map_.end()) // 新的特征点，创建实例对象，并赋值
+        auto iter_point_id = keypoints_featureid_.find(keypoints_id_.at(i));
+        if (iter_point_id == keypoints_featureid_.end())
         {
             Feature feature;
             keypoint_distorted.clear();
             keypoint_undistorted.clear();
-            // keypoint_distorted.push_back(pre_frame_keypoints_[member.trainIdx].pt);
-            keypoint_distorted.push_back(pre_frame_keypoints_[member.queryIdx].pt); //* 2020-02-01 核实trainIdx和queryIdx通过
-            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
-            // cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
-            NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
+            keypoint_distorted.emplace_back(pre_frame_keypoints_.at(i));
+            keypoint_distorted.emplace_back(curr_frame_keypoints_.at(i));
+            cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
+            // NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
 
-            double diff_x = fabs(keypoint_undistorted[0].x - keypoint_undistorted[1].x);
-            double diff_y = fabs(keypoint_undistorted[0].y - keypoint_undistorted[1].y);
-            if (diff_y > 0.04 || diff_x > 0.12)
-                continue;
+            // double diff_x = fabs(keypoint_undistorted[0].x - keypoint_undistorted[1].x);
+            // double diff_y = fabs(keypoint_undistorted[0].y - keypoint_undistorted[1].y);
+            // if (diff_y > 0.04 || diff_x > 0.12)
+            //     continue;
 
             feature.observation_uv_[pre_camera_state->first] = keypoint_undistorted[0];
             feature.observation_uv_[curr_camera_state->first] = keypoint_undistorted[1];
@@ -286,47 +390,45 @@ void MsckfProcess::AddObservation()
 
             map_feature_set_.insert(std::make_pair(feature.feature_id_, feature));
             // map_feature_set_[feature.feature_id_] = feature;
-            curr_trainidx_feature_map_[member.trainIdx] = feature.feature_id_;
-            curr_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
-            pre_camera_state->second.feature_id_set_.push_back(feature.feature_id_);
+            curr_trainidx_feature_map_[keypoints_id_.at(i)] = feature.feature_id_;
+            curr_camera_state->second.feature_id_set_.emplace_back(feature.feature_id_);
+            pre_camera_state->second.feature_id_set_.emplace_back(feature.feature_id_);
         }
-        else // 已经存在的特征点，直接在观测序列中加入当前观测
+        else
         {
             keypoint_distorted.clear();
             keypoint_undistorted.clear();
-            keypoint_distorted.push_back(curr_frame_keypoints_[member.trainIdx].pt);
-            // cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
-            NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
+            keypoint_distorted.emplace_back(curr_frame_keypoints_.at(i));
+            cv::undistortPoints(keypoint_distorted, keypoint_undistorted, camera_mat_, dist_coeffs_);
 
-            auto &pts = map_feature_set_[iter_feature->second].observation_uv_[pre_camera_state->first];
-            double diff_x = fabs(keypoint_undistorted[0].x - pts.x);
-            double diff_y = fabs(keypoint_undistorted[0].y - pts.y);
-            if (diff_y > 0.04 || diff_x > 0.12)
-                continue;
+            // NormKeyPoints(keypoint_distorted, keypoint_undistorted, camera_mat_);
 
-            map_feature_set_[iter_feature->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
-            map_feature_set_[iter_feature->second].raw_uv_[curr_camera_state->first] = keypoint_distorted[0];
+            // auto &pts = map_feature_set_[iter_point_id->second].observation_uv_[pre_camera_state->first];
+            // double diff_x = fabs(keypoint_undistorted[0].x - pts.x);
+            // double diff_y = fabs(keypoint_undistorted[0].y - pts.y);
+            // if (diff_y > 0.04 || diff_x > 0.12)
+            //     continue;
 
-            curr_trainidx_feature_map_[member.trainIdx] = iter_feature->second;
-            curr_camera_state->second.feature_id_set_.push_back(iter_feature->second);
+            map_feature_set_[iter_point_id->second].observation_uv_[curr_camera_state->first] = keypoint_undistorted[0];
+            map_feature_set_[iter_point_id->second].raw_uv_[curr_camera_state->first] = keypoint_distorted[0];
+
+            curr_trainidx_feature_map_[keypoints_id_.at(i)] = iter_point_id->second;
+            curr_camera_state->second.feature_id_set_.emplace_back(iter_point_id->second);
             track_num++;
         }
     }
+    // if (camera_feature_log_)
+    // {
+    //     ofs_camera_feature_log_file_ << "feature map:\t" << std::endl;
+    //     for (auto index : map_feature_set_)
+    //     {
+    //         ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
+    //     }
+    //     ofs_camera_feature_log_file_ << std::endl;
+    // }
 
-    if (camera_feature_log_)
-    {
-        ofs_camera_feature_log_file_ << "feature map:\t" << std::endl;
-        for (auto index : map_feature_set_)
-        {
-            ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
-        }
-        ofs_camera_feature_log_file_ << std::endl;
-    }
-
-    trainidx_feature_map_ = curr_trainidx_feature_map_;
-    pre_frame_descriptors_ = curr_frame_descriptors_.clone();
-    pre_frame_keypoints_ = curr_frame_keypoints_;
-    tracking_rate_ = (double)(track_num) / (double)(curr_camera_state->second.feature_id_set_.size());
+    keypoints_featureid_ = curr_trainidx_feature_map_;
+    // tracking_rate_ = (double)(track_num) / (double)(curr_camera_state->second.feature_id_set_.size());
 }
 
 /**
@@ -341,23 +443,14 @@ void MsckfProcess::DetermineMeasureFeature()
     map_observation_set_.clear();
     for (auto iter_member = map_feature_set_.begin(); iter_member != map_feature_set_.end();)
     {
-        auto iter_feature_inmap = std::find_if(trainidx_feature_map_.begin(), trainidx_feature_map_.end(),
-                                               [&](std::pair<int, long long int> feature_iter) {
+        auto iter_feature_inmap = std::find_if(keypoints_featureid_.begin(), keypoints_featureid_.end(),
+                                               [&](std::pair<unsigned long long int, long long int> feature_iter) {
                                                    return feature_iter.second == iter_member->first;
                                                });
-        // bool find_feature_inmap = false;
-        // for (auto &iter_feature_inmap : trainidx_feature_map_)
-        // {
-        //     if (iter_feature_inmap.second == iter_member->first)
-        //     {
-        //         find_feature_inmap = true;
-        //         break;
-        //     }
-        // }
-        if (iter_feature_inmap == trainidx_feature_map_.end())
+        if (iter_feature_inmap == keypoints_featureid_.end())
         {
             auto &feature = iter_member->second;
-            if (feature.observation_uv_.size() > 2)
+            if (feature.observation_uv_.size() > 3)
             {
                 if (CheckEnableTriangleate(feature) && CheckMotionStatus(feature) /*&& map_observation_set_.size() < 35*/)
                 {
@@ -370,15 +463,15 @@ void MsckfProcess::DetermineMeasureFeature()
         iter_member++;
     }
 
-    if (camera_feature_log_)
-    {
-        ofs_camera_feature_log_file_ << "observation map:\t" << std::endl;
-        for (auto index : map_observation_set_)
-        {
-            ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
-        }
-        ofs_camera_feature_log_file_ << std::endl;
-    }
+    // if (camera_feature_log_)
+    // {
+    //     ofs_camera_feature_log_file_ << "observation map:\t" << std::endl;
+    //     for (auto index : map_observation_set_)
+    //     {
+    //         ofs_camera_feature_log_file_ << index.first << " " << index.second << std::endl;
+    //     }
+    //     ofs_camera_feature_log_file_ << std::endl;
+    // }
 }
 
 /**
@@ -596,39 +689,44 @@ bool MsckfProcess::LMOptimizatePosition(Feature &feature)
     }
     ceres::Solver::Options options;
     options.linear_solver_type = ceres::DENSE_SCHUR;
-    options.max_num_iterations = 12;
+    options.max_num_iterations = 50;
     ceres::Solver::Summary summary;
     // options.minimizer_progress_to_stdout = true;
     ceres::Solve(options, &problem, &summary);
 
     feature.position_world_ << position_world[0], position_world[1], 1.0;
     feature.position_world_ *= (1 / position_world[2]);
-    if (feature.position_world_(2) > 100 || feature.position_world_(2) < 5 || summary.num_successful_steps > 10)
-        return false;
 
-    if (camera_feature_log_)
+    // if (camera_feature_log_)
+    // {
+    //     ofs_camera_feature_log_file_ << "LM result: \t" << feature.feature_id_ << "\t" << feature.position_world_.transpose() << std::endl;
+    //     for (auto iter = feature.raw_uv_.begin(); iter != feature.raw_uv_.end(); iter++)
+    //     {
+    //         const auto &camera_state_tmp = map_state_set_[iter->first];
+    //         ofs_camera_feature_log_file_ << "uv_feature_pixel: \t" << camera_state_tmp.state_id_ << "\t"
+    //                                      << camera_state_tmp.time_.SecondOfWeek() << "\t"
+    //                                      << feature.observation_uv_.at(iter->first) << "\t"
+    //                                      << iter->second << std::endl;
+    //     }
+    // }
+    if (feature.position_world_(2) > 120 || feature.position_world_(2) < 3 || summary.num_successful_steps > 30)
     {
-        ofs_camera_feature_log_file_ << "LM result: \t" << feature.feature_id_ << "\t" << feature.position_world_.transpose() << std::endl;
-        for (auto iter = feature.raw_uv_.begin(); iter != feature.raw_uv_.end(); iter++)
-        {
-            const auto &camera_state_tmp = map_state_set_[iter->first];
-            ofs_camera_feature_log_file_ << "uv_feature_pixel: \t" << camera_state_tmp.state_id_ << "\t"
-                                         << camera_state_tmp.time_.SecondOfWeek() << "\t"
-                                         << feature.observation_uv_.at(iter->first) << "\t"
-                                         << iter->second << std::endl;
-        }
+        // LOG(INFO) << "LM failed" << std::endl;
+        // ofs_camera_feature_log_file_ << "do not used" << std::endl;
+        return false;
     }
     feature.position_world_ = cam0_tranformation * feature.position_world_;
-    auto camera_state_end_iter = feature.raw_uv_.rbegin();
 
-    const auto &camera_state_tmp = map_state_set_[camera_state_end_iter->first];
-    Eigen::Isometry3d cam_n_tran{Eigen::Isometry3d::Identity()};
-    cam_n_tran.rotate(camera_state_tmp.quat_.toRotationMatrix());
-    cam_n_tran.pretranslate(camera_state_tmp.position_);
-    auto tmp_pos = (cam_n_tran.inverse() * feature.position_world_);
+    // auto camera_state_end_iter = feature.raw_uv_.rbegin();
+    // const auto &camera_state_tmp = map_state_set_[camera_state_end_iter->first];
+    // Eigen::Isometry3d cam_n_tran{Eigen::Isometry3d::Identity()};
+    // cam_n_tran.rotate(camera_state_tmp.quat_.toRotationMatrix());
+    // cam_n_tran.pretranslate(camera_state_tmp.position_);
+    // auto tmp_pos = (cam_n_tran.inverse() * feature.position_world_);
     // LOG(ERROR) <<"depth: "<<tmp_pos(2) << std::endl;
-    if (tmp_pos(2) > 50 || tmp_pos(2) < 0.5)
-        return false;
+    // if (tmp_pos(2) > 50 || tmp_pos(2) < 0.5)
+    //     return false;
+
     return true;
 }
 
@@ -704,8 +802,8 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
         J2_2 = camera_state.quat_.toRotationMatrix().transpose(); //* 特征点系数
         H_feature.block<2, 3>(row_index, 0) = J1 * J2_2;
         H_state.block<2, 6>(row_index, iter_camera_index->second) = J1 * J2_1;
-        z_measure.segment<2>(row_index) << measure.x - point_f_pixel(0),
-            measure.y - point_f_pixel(1);
+        z_measure.segment<2>(row_index) << point_f_pixel(0) - measure.x,
+            point_f_pixel(1) - measure.y;
         row_index += 2;
         // if (camera_feature_log_)
         // {
@@ -770,7 +868,7 @@ Eigen::VectorXd MsckfProcess::MeasurementUpdate(const Eigen::MatrixXd &H_state,
 
     Eigen::MatrixXd H_thin;
     Eigen::VectorXd Z_thin;
-    if (false)//H_state.rows() > H_state.cols()) //TODO待更新为QR后进行量测
+    if (H_state.rows() > H_state.cols()) //TODO待更新为QR后进行量测
     {
         Eigen::HouseholderQR<Eigen::MatrixXd> qr;
         qr.compute(H_state);
@@ -812,37 +910,37 @@ Eigen::VectorXd MsckfProcess::MeasurementUpdate(const Eigen::MatrixXd &H_state,
  */
 void MsckfProcess::ReviseCameraState(const Eigen::VectorXd &dx_camera)
 {
-    static std::string result_path_out = config_->get<std::string>("result_output_path") + "/camera_state_log.log";
-    static std::ofstream ofs_camera_state_log(result_path_out);
-    ofs_camera_state_log << "curr_state_time: " << std::fixed << std::setprecision(4)
-                         << curr_time_.SecondOfWeek() << "\t";
+    // static std::string result_path_out = config_->get<std::string>("result_output_path") + "/camera_state_log.log";
+    // static std::ofstream ofs_camera_state_log(result_path_out);
+    // ofs_camera_state_log << "curr_state_time: " << std::fixed << std::setprecision(4)
+    //                      << curr_time_.SecondOfWeek() << "\t";
 
     int camera_state_count = 0;
     // map_state_set_.size();
     assert(dx_camera.size() == map_state_set_.size() * 6);
     for (auto &camera_state : map_state_set_)
     {
-        Eigen::Vector3d theta_camera = dx_camera.segment<3>(camera_state_count * 6 + 3);
         Eigen::Vector3d t_camera = dx_camera.segment<3>(camera_state_count * 6);
-        camera_state_count++;
+        Eigen::Vector3d theta_camera = dx_camera.segment<3>(camera_state_count * 6 + 3);
         auto camera_quat_delta = RotationVector2Quaternion(theta_camera);
         camera_state.second.quat_ = camera_quat_delta * camera_state.second.quat_;
         camera_state.second.position_ -= t_camera;
         camera_state.second.quat_.normalize();
+        camera_state_count++;
 
-        auto BLH = earth::WGS84XYZ2BLH(camera_state.second.position_);
-        ofs_camera_state_log << std::fixed << std::setprecision(4)
-                             << camera_state.second.time_.SecondOfWeek() << "\t"
-                             << camera_state.first << "\t"
-                             << camera_state.second.position_.transpose() << "\t"
-                             << constant::rad2deg *
-                                    attitude::RotationMartix2Euler(
-                                        earth::CalCe2n(BLH(0), BLH(1)) *
-                                        camera_state.second.quat_.toRotationMatrix() * cam_imu_tranformation_.rotation().transpose())
-                                        .transpose()
-                             << "\t";
+        // auto BLH = earth::WGS84XYZ2BLH(camera_state.second.position_);
+        // ofs_camera_state_log << std::fixed << std::setprecision(4)
+        //                      << camera_state.second.time_.SecondOfWeek() << "\t"
+        //                      << camera_state.first << "\t"
+        //                      << camera_state.second.position_.transpose() << "\t"
+        //                      << constant::rad2deg *
+        //                             attitude::RotationMartix2Euler(
+        //                                 earth::CalCe2n(BLH(0), BLH(1)) *
+        //                                 camera_state.second.quat_.toRotationMatrix() * cam_imu_tranformation_.rotation().transpose())
+        //                                 .transpose()
+        //                      << "\t";
     }
-    ofs_camera_state_log << std::endl;
+    // ofs_camera_state_log << std::endl;
     return;
 }
 
@@ -875,23 +973,23 @@ void MsckfProcess::RemoveCameraState()
         {
             auto iter_index_camera = index.camera_state_index.find(iter_camera->first);
             assert(iter_index_camera != index.camera_state_index.end());
-            ofs_camera_feature_log_file_ << std::fixed << std::setprecision(8) << "iter_camera->first: " << iter_camera->first
-                                         << "\t iter_index_camera: " << (iter_index_camera->second) << std::endl;
-            ofs_camera_feature_log_file_ << "state_cov before: " << std::endl
-                                         << filter_->GetStateCov() << std::endl;
+            // ofs_camera_feature_log_file_ << std::fixed << std::setprecision(8) << "iter_camera->first: " << iter_camera->first
+            //                              << "\t iter_index_camera: " << (iter_index_camera->second) << std::endl;
+            // ofs_camera_feature_log_file_ << "state_cov before: " << std::endl
+            //                              << filter_->GetStateCov() << std::endl;
             filter_->EliminateIndex(iter_index_camera->second, 6);
-            ofs_camera_feature_log_file_ << "state_cov after: " << std::endl
-                                         << filter_->GetStateCov() << std::endl;
-            ofs_camera_feature_log_file_ << "index.camera_state_index before: " << index.camera_state_index << std::endl;
+            // ofs_camera_feature_log_file_ << "state_cov after: " << std::endl
+            //                              << filter_->GetStateCov() << std::endl;
+            // ofs_camera_feature_log_file_ << "index.camera_state_index before: " << index.camera_state_index << std::endl;
             iter_index_camera = index.camera_state_index.erase(iter_index_camera);
             for (; iter_index_camera != index.camera_state_index.end(); iter_index_camera++)
             {
                 iter_index_camera->second -= 6;
             }
-            ofs_camera_feature_log_file_ << "index.camera_state_index after: " << index.camera_state_index << std::endl;
-            ofs_camera_feature_log_file_ << "map_state_set_ before: " << map_state_set_ << std::endl;
+            // ofs_camera_feature_log_file_ << "index.camera_state_index after: " << index.camera_state_index << std::endl;
+            // ofs_camera_feature_log_file_ << "map_state_set_ before: " << map_state_set_ << std::endl;
             iter_camera = map_state_set_.erase(iter_camera);
-            ofs_camera_feature_log_file_ << "map_state_set_ after: " << map_state_set_ << std::endl;
+            // ofs_camera_feature_log_file_ << "map_state_set_ after: " << map_state_set_ << std::endl;
         }
     }
 }
@@ -908,7 +1006,6 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
     Eigen::MatrixXd Hstate_all;
     Eigen::VectorXd Zmeasure_all;
     for (auto iter_feature = map_observation_set_.begin(); iter_feature != map_observation_set_.end(); iter_feature++)
-    //for (auto iter_feature = map_feature_set_.begin(); iter_feature != map_feature_set_.end(); iter_feature++)
     {
         bool temp = LMOptimizatePosition(iter_feature->second);
         if (temp)
@@ -926,7 +1023,7 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
                 Zmeasure_all.conservativeResize(z_measure.rows() + Zmeasure_all.rows(), 1);
                 Zmeasure_all.bottomRows(z_measure.rows()) = z_measure;
                 count++;
-                if (Hstate_all.rows() > 500)
+                if (Hstate_all.rows() > 600)
                     break;
             }
             else
@@ -940,28 +1037,28 @@ void MsckfProcess::FeatureMeasureUpdate(utiltool::NavInfo &navinfo)
             }
         }
     }
-    if (Hstate_all.cols() == 0)
+    if (Hstate_all.rows() < 20 || count < 3)
         return;
-    LOG_EVERY_N(INFO, 10) << "Measure Feature Number is " << count << std::endl;
+    LOG(INFO) << "Measure Feature Number is " << count << std::endl;
 
     Eigen::VectorXd dx = MeasurementUpdate(Hstate_all, Zmeasure_all);
-    static std::string output_path = (config_->get<std::string>("result_output_path")) + ("/dx.log");
-    static std::ofstream ofs_dx_log(output_path);
 
-    ofs_dx_log << std::fixed << std::setprecision(3) << navinfo.time_.SecondOfWeek() << " "
-               << std::fixed << std::setprecision(8) << dx.segment<9>(index.pos_index_).transpose() << "\t"
-               << dx.tail(6).transpose() << std::endl;
+    // static std::string output_path = (config_->get<std::string>("result_output_path")) + ("/dx.log");
+    // static std::ofstream ofs_dx_log(output_path);
+    // ofs_dx_log << std::fixed << std::setprecision(3) << navinfo.time_.SecondOfWeek() << " "
+    //            << std::fixed << std::setprecision(8) << dx.segment<9>(index.pos_index_).transpose() << "\t"
+    //            << dx.tail(6).transpose() << std::endl;
 
-    if (dx.segment<3>(index.pos_index_).norm() > 1 || dx.segment<3>(index.vel_index_).norm() > 0.5)
+    if (dx.segment<3>(index.pos_index_).norm() > 1.0 || dx.segment<3>(index.vel_index_).norm() > 1.0)
     {
-        LOG(WARNING) << "The value of resive dx is not correct, time: "
+        LOG(ERROR) << "The value of resive dx is not correct, time: "
                      << navinfo.time_.SecondOfWeek()
                      << "\tpos: " << dx.segment<3>(index.pos_index_).transpose()
                      << "\tvel: " << dx.segment<3>(index.vel_index_).transpose() << std::endl;
+        return;
     }
     Eigen::VectorXd dx_imu = dx.head(filter_->GetStateIndex().total_state);
 
-    // Eigen::VectorXd dx_imu = Eigen::VectorXd::Zero(21);
     filter_->ReviseState(navinfo, dx_imu);
     ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
     map_observation_set_.clear();
@@ -993,7 +1090,7 @@ void MsckfProcess::RemoveRedundantCamStates(utiltool::NavInfo &navinfo)
         double distance = (position - key_position).norm();
         double angle = Eigen::AngleAxisd(rotation * key_rotation.transpose()).angle();
 
-        if (angle < 0.2618 && distance < 0.4 && tracking_rate_ > 0.5)
+        if (angle < 0.2618 && distance < 0.4 /*&& tracking_rate_ > 0.5*/)
         {
             rm_cam_state_ids.push_back(cam_state_iter->first);
             ++cam_state_iter;
@@ -1015,7 +1112,7 @@ void MsckfProcess::RemoveRedundantCamStates(utiltool::NavInfo &navinfo)
         auto iter_cam2 = feature.observation_uv_.find(rm_cam_state_ids[1]);
         if (iter_cam1 != feature.observation_uv_.end() && iter_cam2 != feature.observation_uv_.end())
         {
-            if (false /*LMOptimizatePosition(feature)*/)
+            if (LMOptimizatePosition(feature))
             {
                 Feature tmp_feature(feature.feature_id_);
                 tmp_feature.observation_uv_[rm_cam_state_ids[0]] = iter_cam1->second;
@@ -1091,7 +1188,7 @@ void MsckfProcess::RemoveRedundantCamStates(utiltool::NavInfo &navinfo)
  */
 bool MsckfProcess::GatingTest(const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const int &dof)
 {
-    static double pixel_noise = 10; //pixel config_->get<double>("camera_pixel_noise");
+    static double pixel_noise = config_->get<double>("camera_pixel_noise");
     const auto &state_cov = filter_->GetStateCov();
     Eigen::MatrixXd P1 = H * state_cov * H.transpose();
     Eigen::MatrixXd P2 = pixel_noise * pixel_noise * Eigen::MatrixXd::Identity(H.rows(), H.rows());
@@ -1112,7 +1209,7 @@ bool MsckfProcess::GatingTest(const Eigen::MatrixXd &H, const Eigen::VectorXd &r
     }
     else
     {
-        LOG_EVERY_N(ERROR, 20) << "gamma: " << gamma << "\tdof:" << dof << "\t average" << average << std::endl;
+        LOG(INFO) <<std::fixed <<std::setprecision(3) <<curr_time_.SecondOfWeek() << "\tgamma: " << gamma << "\tdof:" << dof << "\t average" << average << std::endl;
         return false;
     }
 }
@@ -1122,10 +1219,10 @@ void MsckfProcess::NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distor
                                  const cv::Mat &camera_mat_)
 {
     cv::Point2f tmp_key;
-    const double fx = camera_mat_.at<double>(0, 0);
-    const double fy = camera_mat_.at<double>(1, 1);
-    const double cx = camera_mat_.at<double>(0, 2);
-    const double cy = camera_mat_.at<double>(1, 2);
+    const double &fx = camera_mat_.at<double>(0, 0);
+    const double &fy = camera_mat_.at<double>(1, 1);
+    const double &cx = camera_mat_.at<double>(0, 2);
+    const double &cy = camera_mat_.at<double>(1, 2);
     for (auto &member : keypoint_distorted)
     {
         tmp_key = member;
@@ -1133,6 +1230,40 @@ void MsckfProcess::NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distor
         tmp_key.y = (member.y - cy) / fy;
         keypoint_undistorted.emplace_back(tmp_key);
     }
+}
+
+void MsckfProcess::Test()
+{
+    auto curr_camera_state = map_state_set_.end();
+    curr_camera_state--;
+    auto pre_camera_state = curr_camera_state;
+    pre_camera_state--;
+
+    cv::Point2d principal_point(332.8951, 229.7975); //相机光心，TUM dataset 的标定值
+    double focal_length = 1155.2;                    //相机焦距, TUM dataset标定值
+    cv::Mat essential_mat = findEssentialMat(curr_frame_keypoints_, pre_frame_keypoints_, focal_length, principal_point);
+
+    cv::Mat R, t;
+    cv::recoverPose(essential_mat, curr_frame_keypoints_, pre_frame_keypoints_, R, t, focal_length, principal_point);
+
+    Eigen::Matrix3d R_camera;
+    Eigen::Vector3d t_camera;
+    cv::cv2eigen(R, R_camera);
+    cv::cv2eigen(t, t_camera);
+
+    Eigen::Matrix3d R_imu1 = pre_camera_state->second.quat_.toRotationMatrix() * cam_imu_tranformation_.rotation().transpose();
+    Eigen::Matrix3d R_imu2 = curr_camera_state->second.quat_.toRotationMatrix() * cam_imu_tranformation_.rotation().transpose();
+    Eigen::Vector3d Rimu12 = attitude::RotationMartix2Euler(R_imu1.transpose() * R_imu2);
+    auto rotation_imu = attitude::Quaternion2Euler(pre_camera_state->second.quat_.conjugate() * curr_camera_state->second.quat_);
+    auto rotation_cam = attitude::RotationMartix2Euler(R_camera);
+    auto t_imu = pre_camera_state->second.quat_.conjugate() * (curr_camera_state->second.position_ - pre_camera_state->second.position_);
+    ofs_camera_feature_log_file_ << "camera_imu:" << curr_time_.SecondOfWeek() << " " << curr_camera_state->second.time_.SecondOfWeek() << " " << std::fixed
+                                 << std::setprecision(8) << rotation_imu.transpose() * constant::rad2deg << " "
+                                 << rotation_cam.transpose() * constant::rad2deg << " "
+                                 << Rimu12.transpose() * constant::rad2deg << " "
+                                 << t_imu.transpose() * 100 << "  "
+                                 << t_camera.transpose() * 100 << "  "
+                                 << std::endl;
 }
 
 } // namespace camera

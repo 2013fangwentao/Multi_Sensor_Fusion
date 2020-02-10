@@ -119,7 +119,8 @@ Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eige
   Eigen::MatrixXd K = state_cov_ * H.transpose() * ((H * state_cov_ * H.transpose() + R).inverse());
   Eigen::VectorXd deltaX = K * Z;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(state_cov_.rows(), state_cov_.cols());
-  state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
+  // state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
+  state_cov_ = (I - K * H) * state_cov_;
   Eigen::MatrixXd state_cov_fixed = (state_cov_ + state_cov_.transpose()) / 2.0;
   state_cov_ = state_cov_fixed; //* 保持方差正定
   if (debug_log_ /*&& int_second % 100 == 0*/)
