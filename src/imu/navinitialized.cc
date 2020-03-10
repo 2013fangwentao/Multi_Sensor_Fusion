@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:14:23 2019 little fang
-** Last update Tue Aug 26 下午3:03:59 2019 little fang
+** Last update Wed Mar 10 上午11:51:53 2020 little fang
 */
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
@@ -79,31 +79,33 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
     BaseData::bPtr data;
     std::vector<ImuData::Ptr> imu_data_buffer;
     static double velocity_threshold = config->get<double>("alignnment_velocity_threshold");
-
+    bool use_set_attitude = (config->get<int>("alignnment_attitude_mode") != 0);
+    bool use_set_posvel = (config->get<int>("alignnment_posvel_mode") != 0);
     /* 赋值其他设定项 */
-    std::vector<double> vec_value_tmp = config->get_array<double>("leverarm");
-    nav_info.leverarm_ << vec_value_tmp[0], vec_value_tmp[1], vec_value_tmp[2];
+    std::vector<double>
+        vec_value_tmp = config->get_array<double>("leverarm");
+    nav_info.leverarm_ << vec_value_tmp.at(0), vec_value_tmp.at(1), vec_value_tmp.at(2);
 
     vec_value_tmp = config->get_array<double>("initial_gyro_bias");
-    nav_info.gyro_bias_ << vec_value_tmp[0] * dh2rs, vec_value_tmp[1] * dh2rs, vec_value_tmp[2] * dh2rs;
+    nav_info.gyro_bias_ << vec_value_tmp.at(0) * dh2rs, vec_value_tmp.at(1) * dh2rs, vec_value_tmp.at(2) * dh2rs;
 
     vec_value_tmp = config->get_array<double>("initial_acce_bias");
     nav_info.acce_bias_
-        << vec_value_tmp[0] * constant_mGal,
-        vec_value_tmp[1] * constant_mGal,
-        vec_value_tmp[2] * constant_mGal;
+        << vec_value_tmp.at(0) * constant_mGal,
+        vec_value_tmp.at(1) * constant_mGal,
+        vec_value_tmp.at(2) * constant_mGal;
 
     vec_value_tmp = config->get_array<double>("initial_gyro_scale");
     nav_info.gyro_scale_
-        << vec_value_tmp[0] * constant_ppm,
-        vec_value_tmp[1] * constant_ppm,
-        vec_value_tmp[2] * constant_ppm;
+        << vec_value_tmp.at(0) * constant_ppm,
+        vec_value_tmp.at(1) * constant_ppm,
+        vec_value_tmp.at(2) * constant_ppm;
 
     vec_value_tmp = config->get_array<double>("initial_acce_scale");
     nav_info.acce_scale_
-        << vec_value_tmp[0] * constant_ppm,
-        vec_value_tmp[1] * constant_ppm,
-        vec_value_tmp[2] * constant_ppm;
+        << vec_value_tmp.at(0) * constant_ppm,
+        vec_value_tmp.at(1) * constant_ppm,
+        vec_value_tmp.at(2) * constant_ppm;
 
     data = ptr_data_queue_->GetData();
     if (data->get_type() == DATAUNKOWN)
@@ -127,6 +129,24 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
         }
         GnssData::Ptr temp_gnss_data = std::dynamic_pointer_cast<GnssData>(data);
         gnss_data = InterpolateGnssVel(gnss_data, temp_gnss_data);
+    }
+    if (use_set_attitude)
+    {
+        aligned_mode_ = SETTING;
+        auto att = config->get_array<double>("initial_att");
+        nav_info.pos_ = gnss_data->pos_;
+        nav_info.vel_ = gnss_data->vel_;
+        nav_info.att_(0) = att[0] * constant::deg2rad;
+        nav_info.att_(1) = att[1] * constant::deg2rad;
+        nav_info.att_(2) = att[2] * constant::deg2rad;
+        nav_info.rotation_ = Euler2RotationMatrix(nav_info.att_);
+        nav_info.quat_ = RotationMartix2Quaternion(nav_info.rotation_);
+        nav_info.time_ = gnss_data->get_time();
+        nav_info.pos_std_ = gnss_data->pos_std_;
+        nav_info.vel_std_ = gnss_data->vel_std_;
+        nav_info = AttCaln2e(nav_info);
+        LOG(INFO) << "Alignment by setted value, " << nav_info.att_.transpose() * constant::rad2deg << std::endl;
+        return true;
     }
     if (gnss_data->vel_.norm() > velocity_threshold)
     {
@@ -200,7 +220,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
     {
         auto pos_std = config->get_array<double>("initial_pos_std");
         auto vel_std = config->get_array<double>("initial_vel_std");
-        PVariance.segment<6>(index.pos_index_) << pos_std[0], pos_std[1], pos_std[2], vel_std[0], vel_std[1], vel_std[2];
+        PVariance.segment<6>(index.pos_index_) << pos_std.at(0), pos_std.at(1), pos_std.at(2), vel_std.at(0), vel_std.at(1), vel_std.at(2);
     }
     else
     {
@@ -211,7 +231,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
     if (user_define_std_att || aligned_mode_ == SETTING)
     {
         auto att_std = config->get_array<double>("initial_att_std");
-        PVariance.segment<3>(index.att_index_) << att_std[0], att_std[1], att_std[2];
+        PVariance.segment<3>(index.att_index_) << att_std.at(0) * deg2rad, att_std.at(1) * deg2rad, att_std.at(2) * deg2rad;
         LOG(INFO) << "The attitude initialized variance setted by configure file!!! configure file!!!" << std::endl;
     }
     else
@@ -225,19 +245,24 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
     }
     auto gyro_bias_std = config->get_array<double>("gyro_bias_std");
     auto acce_bias_std = config->get_array<double>("acce_bias_std");
-    PVariance.segment<3>(index.gyro_bias_index_) << gyro_bias_std[0], gyro_bias_std[1], gyro_bias_std[2];
+    PVariance.segment<3>(index.gyro_bias_index_) << gyro_bias_std.at(0), gyro_bias_std.at(1), gyro_bias_std.at(2);
     PVariance.segment<3>(index.gyro_bias_index_) *= constant::dh2rs;
-    PVariance.segment<3>(index.acce_bias_index_) << acce_bias_std[0], acce_bias_std[1], acce_bias_std[2];
+    PVariance.segment<3>(index.acce_bias_index_) << acce_bias_std.at(0), acce_bias_std.at(1), acce_bias_std.at(2);
     PVariance.segment<3>(index.acce_bias_index_) *= constant_mGal;
     bool evaluate_imu_scale = config->get<int>("evaluate_imu_scale") == 0 ? false : true;
     if (evaluate_imu_scale)
     {
         auto gyro_scale_std = config->get_array<double>("gyro_scale_std");
         auto acce_scale_std = config->get_array<double>("acce_scale_std");
-        PVariance.segment<3>(index.gyro_scale_index_) << gyro_scale_std[0], gyro_scale_std[1], gyro_scale_std[2];
+        PVariance.segment<3>(index.gyro_scale_index_) << gyro_scale_std.at(0), gyro_scale_std.at(1), gyro_scale_std.at(2);
         PVariance.segment<3>(index.gyro_scale_index_) *= constant_ppm;
-        PVariance.segment<3>(index.acce_scale_index_) << acce_scale_std[0], acce_scale_std[1], acce_scale_std[2];
+        PVariance.segment<3>(index.acce_scale_index_) << acce_scale_std.at(0), acce_scale_std.at(1), acce_scale_std.at(2);
         PVariance.segment<3>(index.acce_scale_index_) *= constant_ppm;
+    }
+    bool evaluate_camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") != 0 ? true : false;
+    if (evaluate_camera_imu_rotation)
+    {
+        PVariance.segment<3>(index.camera_rotation_index_) << 0.1_deg, 0.1_deg, 0.1_deg;
     }
     //TODO 使用其他状态量是确定其初始方差.
     return PVariance;
@@ -251,6 +276,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
 void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
 {
     int evaluate_imu_scale = config->get<int>("evaluate_imu_scale");
+    bool evaluate_camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") != 0 ? true : false;
     // bool rotation_iv = config->get<int>("evaluate_imu_vehicle_rotation");
     state_index.pos_index_ = 0;
     state_index.vel_index_ = 3;
@@ -263,6 +289,11 @@ void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
         state_index.gyro_scale_index_ = basic_index + 3;
         state_index.acce_scale_index_ = basic_index + 6;
         basic_index += 6;
+    }
+    if (evaluate_camera_imu_rotation)
+    {
+        state_index.camera_rotation_index_ = basic_index + 3;
+        basic_index += 3;
     }
     state_index.total_state = basic_index + 3; //TODO 需要调整
     // TODO 使用里程计,相机等需要更新其他状态量的参数索引

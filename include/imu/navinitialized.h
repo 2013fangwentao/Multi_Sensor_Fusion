@@ -46,7 +46,7 @@ public:
     bool StartAligning(utiltool::NavInfo &nav_info);
     Eigen::VectorXd &SetInitialVariance(Eigen::VectorXd &PVariance,
                                         utiltool::NavInfo &nav_info,
-                                        const utiltool::StateIndex &index); //TODO 需要设定index 和对应的方差信息
+                                        const utiltool::StateIndex &index); 
     void SetStateIndex(utiltool::StateIndex &state_index);
 
 private:

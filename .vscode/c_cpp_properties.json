@@ -9,7 +9,12 @@
                 "/opt/thirdparty/include/eigen3",
                 "/usr/local/include",
                 "/usr/local/include/eigen3",
-                "${workspaceFolder}/submodules/tools/include"
+                "${workspaceFolder}/submodules/tools/include",
+                "/opt/include",
+                "/opt/include/eigen3",
+                "/usr/local/include",
+                "/usr/local/include/eigen3",
+                "/usr/include/suitsparse"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Wed Aug 13 下午2:32:36 2019 little fang
+** Last update Wed Feb 11 下午12:29:44 2020 little fang
 */
 
 #include "filter/navfilter.h"
@@ -34,8 +34,8 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
   {
     ConfigInfo::Ptr getconfig = ConfigInfo::GetInstance();
 
-    std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/" +
-                                  getconfig->get<std::string>("filter_debug_cov_file");
+    std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/filter";
+    debug_info_path.append(".log-" + (utiltool::NavTime::NowTime()).Time2String("%04d-%02d-%02d-%02d-%02d-%4.1f"));
     debug_log_file_.open(debug_info_path);
     LOG(INFO) << "filter_debug_cov_file: " << debug_info_path << std::endl;
 
@@ -43,6 +43,8 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
     {
       LOG(INFO) << ("Open filter debug file failed! ") << std::endl;
     }
+    debug_log_file_ << "intial state covarance: " << std::endl
+                    << state_cov_ << std::endl;
   }
   return true;
 }
@@ -84,24 +86,26 @@ bool KalmanFilter::TimeUpdate(const Eigen::MatrixXd &Phi, const Eigen::MatrixXd 
   }
   if (debug_log_)
   {
-    // debug_log_file_ << std::endl
-    //                 << std::fixed << time.Time2String() << std::endl;
-    // debug_log_file_ << std::setprecision(18) << "state cov" << std::endl
-    //                 << state_cov_ << std::endl
-    //                 << "PHI " << std::endl
-    //                 << Phi << std::endl
-    //                 << " Q " << std::endl
-    //                 << Q << std::endl;
+    debug_log_file_ << std::endl
+                    << std::fixed << time.Time2String() << std::endl;
+    debug_log_file_ << std::setprecision(18) << "state cov" << std::endl
+                    << state_cov_ << std::endl
+                    << "PHI " << std::endl
+                    << Phi << std::endl
+                    << " Q " << std::endl
+                    << Q << std::endl;
   }
 }
 
 Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eigen::VectorXd &Z, const Eigen::MatrixXd &R,
                                             const utiltool::NavTime &time)
 {
-  if (debug_log_)
+  double second = time.SecondOfDay();
+  int int_second = int(second * 100);
+  if (debug_log_ /*&& int_second % 100 == 0*/)
   {
     debug_log_file_ << "\n"
-                    << std::fixed << time.Time2String() << std::endl;
+                    << std::fixed << time.Time2String() <<" "<<time.SecondOfWeek()<< std::endl;
     debug_log_file_ << std::setprecision(8) << "state cov" << std::endl
                     << state_cov_ << std::endl
                     << "H " << std::endl
@@ -114,8 +118,11 @@ Eigen::VectorXd KalmanFilter::MeasureUpdate(const Eigen::MatrixXd &H, const Eige
   Eigen::MatrixXd K = state_cov_ * H.transpose() * ((H * state_cov_ * H.transpose() + R).inverse());
   Eigen::VectorXd deltaX = K * Z;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(state_cov_.rows(), state_cov_.cols());
-  state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
-  if (debug_log_)
+  // state_cov_ = (I - K * H) * state_cov_ * (I - K * H).transpose() + K * R * K.transpose();
+  state_cov_ = (I - K * H) * state_cov_;
+  Eigen::MatrixXd state_cov_fixed = (state_cov_ + state_cov_.transpose()) / 2.0;
+  state_cov_ = state_cov_fixed; //* 保持方差正定
+  if (debug_log_ /*&& int_second % 100 == 0*/)
   {
     debug_log_file_ << std::setprecision(8) << "after update state cov" << std::endl
                     << state_cov_ << std::endl
@@ -235,7 +242,7 @@ bool KalmanFilter::InsertIndex(size_t start_index, std::vector<double> init_cov)
 void KalmanFilter::ReviseState(utiltool::NavInfo &nav_info, const Eigen::VectorXd &dx)
 {
   using namespace utiltool;
-  ConfigInfo::Ptr config = ConfigInfo::GetInstance();
+  static ConfigInfo::Ptr config = ConfigInfo::GetInstance();
   nav_info.pos_ -= dx.segment<3>(state_index_.pos_index_);
   nav_info.vel_ -= dx.segment<3>(state_index_.vel_index_);
   Eigen::Quaterniond q_update = attitude::RotationVector2Quaternion(dx.segment<3>(state_index_.att_index_));

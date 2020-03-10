@@ -1,7 +1,8 @@
 cmake_minimum_required( VERSION 2.8 )
 PROJECT(mscnav)
 
-set(Ceres_DIR /opt/thirdparty/lib/cmake/Ceres)
+set(Ceres_DIR /opt/lib/cmake/Ceres)
+# set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH}")
 
 find_package(glog REQUIRED)
 find_package(gflags REQUIRED)
@@ -11,14 +12,15 @@ find_package(Ceres REQUIRED)
 
 SET(CMAKE_CXX_COMPILE "g++")
 SET(CMAKE_C_COMPILE "gcc")
-SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O0 -pthread" )
-SET( CMAKE_BUILD_TYPE "debug")
+SET( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O2 -pthread" )
+SET( CMAKE_BUILD_TYPE "release")
 
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 
-INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include 
+INCLUDE_DIRECTORIES(${PROJECT_SOURCE_DIR}/include
+                    /usr/include/suitesparse
                     ${PROJECT_SOURCE_DIR}/submodules/tools/include
                     ${PROJECT_SOURCE_DIR}/thirdparty
                     ${EIGEN3_INCLUDE_DIRS}

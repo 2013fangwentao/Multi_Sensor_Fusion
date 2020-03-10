@@ -71,7 +71,7 @@ bool State::InitializeState()
         LOG(ERROR) << "Initialize the navigation information failed" << std::endl;
         return false;
     }
-    //TODO 需要调试检查是否有效 GetStateIndex
+
     initialize_nav_->SetStateIndex(filter_->GetStateIndex());                                                        //设置状态量对应的索引
     initial_Pvariance = initialize_nav_->SetInitialVariance(initial_Pvariance, nav_info_, filter_->GetStateIndex()); //设置初始方差信息
     filter_->InitialStateCov(initial_Pvariance);
@@ -84,47 +84,47 @@ bool State::InitializeState()
 
     std::vector<double> tmp_value = config_->get_array<double>("position_random_walk");
     state_q_tmp.segment<3>(index.pos_index_)
-        << tmp_value[0],
-        tmp_value[1],
-        tmp_value[2];
+        << tmp_value.at(0),
+        tmp_value.at(1),
+        tmp_value.at(2);
 
     tmp_value = config_->get_array<double>("velocity_random_walk");
     state_q_tmp.segment<3>(index.vel_index_)
-        << tmp_value[0] / 60.0,
-        tmp_value[1] / 60.0,
-        tmp_value[2] / 60.0;
+        << tmp_value.at(0) / 60.0,
+        tmp_value.at(1) / 60.0,
+        tmp_value.at(2) / 60.0;
 
     tmp_value = config_->get_array<double>("attitude_random_walk");
     state_q_tmp.segment<3>(index.att_index_)
-        << tmp_value[0] * deg2rad / 60.0,
-        tmp_value[1] * deg2rad / 60.0,
-        tmp_value[2] * deg2rad / 60.0;
+        << tmp_value.at(0) * deg2rad / 60.0,
+        tmp_value.at(1) * deg2rad / 60.0,
+        tmp_value.at(2) * deg2rad / 60.0;
 
     tmp_value = config_->get_array<double>("gyro_bias_std");
     state_q_tmp.segment<3>(index.gyro_bias_index_)
-        << tmp_value[0] * dh2rs,
-        tmp_value[1] * dh2rs,
-        tmp_value[2] * dh2rs;
+        << tmp_value.at(0) * dh2rs,
+        tmp_value.at(1) * dh2rs,
+        tmp_value.at(2) * dh2rs;
 
     tmp_value = config_->get_array<double>("acce_bias_std");
     state_q_tmp.segment<3>(index.acce_bias_index_)
-        << tmp_value[0] * constant_mGal,
-        tmp_value[1] * constant_mGal,
-        tmp_value[2] * constant_mGal;
+        << tmp_value.at(0) * constant_mGal,
+        tmp_value.at(1) * constant_mGal,
+        tmp_value.at(2) * constant_mGal;
 
     if (config_->get<int>("evaluate_imu_scale") != 0)
     {
         tmp_value = config_->get_array<double>("gyro_scale_std");
         state_q_tmp.segment<3>(index.gyro_scale_index_)
-            << tmp_value[0] * constant_ppm,
-            tmp_value[1] * constant_ppm,
-            tmp_value[2] * constant_ppm;
+            << tmp_value.at(0) * constant_ppm,
+            tmp_value.at(1) * constant_ppm,
+            tmp_value.at(2) * constant_ppm;
 
         tmp_value = config_->get_array<double>("acce_scale_std");
         state_q_tmp.segment<3>(index.acce_scale_index_)
-            << tmp_value[0] * constant_ppm,
-            tmp_value[1] * constant_ppm,
-            tmp_value[2] * constant_ppm;
+            << tmp_value.at(0) * constant_ppm,
+            tmp_value.at(1) * constant_ppm,
+            tmp_value.at(2) * constant_ppm;
     }
     state_q_tmp = state_q_tmp.array().pow(2);
     double gbtime = config_->get<double>("corr_time_of_gyro_bias") * constant_hour;
@@ -199,50 +199,58 @@ void State::StartProcessing()
     }
     while (true)
     {
-        if (ptr_gnss_data != nullptr)
-        {
-            double dt = ptr_gnss_data->get_time() - latest_update_time_;
-            // Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
-            // filter_->TimeUpdate(PHI, Q, ptr_gnss_data->get_time());
-            gps_process_->processing(ptr_gnss_data, nav_info_, dx);
-            ReviseState(dx);
-            // PHI = Eigen::MatrixXd::Identity(state_count, state_count);
-            latest_update_time_ = ptr_gnss_data->get_time();
-            ptr_gnss_data = nullptr;
-            // ofs_result_output_ << nav_info_ << std::endl;
-            // LOG(INFO) << nav_info_.time_ << std::endl;
-        }
-        else if (ptr_camera_data != nullptr)
-        {
-            msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
-            ptr_camera_data = nullptr;
-        }
-        else if (ptr_curr_imu_data != nullptr)
+        if (ptr_curr_imu_data != nullptr)
         {
             Eigen::MatrixXd phi;
             double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
             (*ptr_curr_imu_data) = Compensate(*ptr_curr_imu_data, nav_info_, dt);
             nav_info_ = navmech::MechanicalArrangement(*ptr_pre_imu_data, *ptr_curr_imu_data, nav_info_, phi);
-            // double dt = ptr_curr_imu_data->get_time() - ptr_pre_imu_data->get_time();
-            Eigen::MatrixXd Q = (phi * state_q_ * phi.transpose() + state_q_) * 0.5 * dt;
-            filter_->TimeUpdate(phi, Q, ptr_curr_imu_data->get_time());
-            /*考虑为一步预测 */
-            // PHI *= phi;
+            PHI *= phi;
             ptr_pre_imu_data = ptr_curr_imu_data;
             ptr_curr_imu_data = nullptr;
         }
-        int idt = int((nav_info_.time_.Second() + 1e-6) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        else
+        {
+            /* time update */
+            double dt = base_data->get_time() - latest_update_time_;
+            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
+            filter_->TimeUpdate(PHI, Q, base_data->get_time());
+            PHI = Eigen::MatrixXd::Identity(state_count, state_count);
+            latest_update_time_ = base_data->get_time();
+
+            /* measure update */
+            if (ptr_gnss_data != nullptr)
+            {
+                gps_process_->processing(ptr_gnss_data, nav_info_, dx);
+                ReviseState(dx);
+                if (camera_enable)
+                {
+                    int cam_imu_idx = config_->get<int>("evaluate_camera_imu_rotation") == 0 ? 0 : 3;
+                    msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state + cam_imu_idx));
+                }
+                ptr_gnss_data = nullptr;
+            }
+            else if (ptr_camera_data != nullptr)
+            {
+
+                msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
+                ptr_camera_data = nullptr;
+            }
+        }
+
+        int idt = int((nav_info_.time_.Second()) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();
             double double_part = (second_of_week * output_rate - int(second_of_week * output_rate)) / output_rate;
             NavTime inter_time = nav_info_.time_ - double_part;
             auto output_nav = InterpolateNavInfo(nav_info_bak_, nav_info_, inter_time);
-            // output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
-            // auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
-            // output_nav.vel_ = earth::CalCe2n(blh(0),blh(1)) * earth::CorrectLeverarmVel(output_nav);
+            output_nav.pos_ = earth::CorrectLeverarmPos(output_nav);
+            auto blh = earth::WGS84XYZ2BLH(output_nav.pos_);
+            output_nav.vel_ = earth::CalCe2n(blh(0), blh(1)) * earth::CorrectLeverarmVel(output_nav);
             ofs_result_output_ << output_nav << std::endl;
-            LOG(INFO) << output_nav.time_ << std::endl;
+            if (fabs(int(output_nav.time_.SecondOfWeek()) - output_nav.time_.SecondOfWeek() < 0.04))
+                LOG(ERROR) << output_nav.time_ << std::endl;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */

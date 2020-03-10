@@ -31,7 +31,7 @@ int main(int argc, char const *argv[])
     utiltool::NavTime time_start = utiltool::NavTime::NowTime();
     ConfigInfo::Ptr config = ConfigInfo::GetInstance();
     config->open(argv[1]);
-    LogInit(argv[0], argv[2], 0);
+    LogInit(argv[0], argv[2], 2);
 
     State::Ptr state = State::GetState();
     state->StartProcessing();

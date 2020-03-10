@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 上午10:02:18 2019 little fang
-** Last update Thu Nov 6 下午8:04:40 2019 little fang
+** Last update Fri Jan 16 下午2:39:02 2020 little fang
 */
 
 #ifndef GNSSDATA_H_
@@ -70,9 +70,15 @@ public:
 
 private:
 	void ReadingData();
+	void DetermineBreakTime(const std::vector<double> &break_time);
+	void DetermineBreakTimeArray(const std::vector<double> &break_time);
+	bool IsBreak(double sow);
 
 private:
 	std::ifstream ifs_file_;
+	double up_bound_[20];
+	double low_bound_[20];
+	int bound_count_ = 0;
 };
 } // namespace mscnav
 #endif

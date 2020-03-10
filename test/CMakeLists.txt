@@ -22,3 +22,6 @@ target_link_libraries( test_image orbfeature camera tools process filter ${OpenC
 
 add_executable(NavTestCamera ./NavTestCamera.cc)
 target_link_libraries( NavTestCamera tools ${GLOG_LIBRARY}  ${OpenCV_LIBS})
+
+add_executable(trianglePoints ./trianglePoints.cc)
+target_link_libraries( trianglePoints tools ${GLOG_LIBRARY}  ${OpenCV_LIBS})

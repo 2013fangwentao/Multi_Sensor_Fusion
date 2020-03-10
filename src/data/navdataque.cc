@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:49:00 2019 little fang
-** Last update Wed Nov 5 下午4:30:25 2019 little fang
+** Last update Sun Nov 9 上午9:08:30 2019 little fang
 */
 #include "data/navdataque.h"
 #include "navlog.hpp"
@@ -61,6 +61,7 @@ void DataQueue::SortData()
     int data_type_count = 2; //TODO 多源数据时需要重新考虑赋值问题.动态变化
     if (camera_enable != 0)
     {
+        camera = std::make_shared<CameraData>();
         data_type_count++;
         if(ptr_camera_data_==nullptr)
         {
@@ -71,7 +72,6 @@ void DataQueue::SortData()
             LOG(FATAL) << "Camera Data Thread Over, Can not Get Data" << std::endl;
             return;
         }
-        camera = std::make_shared<CameraData>();
     }
     if (!ptr_gnss_data_->GetData(gnss))
     {

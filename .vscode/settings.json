@@ -56,7 +56,9 @@
         "list": "cpp",
         "cfenv": "cpp",
         "regex": "cpp",
-        "csignal": "cpp"
+        "csignal": "cpp",
+        "spqrsupport": "cpp",
+        "random": "cpp"
     },
     "python.pythonPath": "/usr/bin/python3"
 }
