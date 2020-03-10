@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午3:24:38 2019 little fang
-** Last update Tue Feb 3 下午6:34:48 2020 little fang
+** Last update Wed Feb 11 下午2:17:13 2020 little fang
 */
 
 #ifndef FEATURE_H_
@@ -90,15 +90,17 @@ operator<<(std::ostream &output, const std::map<key, value> &data)
 
 std::ostream &operator<<(std::ostream &output, const CameraState &camera_state)
 {
-    output << std::setw(9) << std::setfill('0') << camera_state.state_id_ << "  ";
-    output << std::fixed << std::setprecision(4) << camera_state.position_.transpose();
+    output << std::setw(9) << camera_state.state_id_ << "  ";
+    output << std::fixed << std::setprecision(4) << camera_state.position_.transpose() << "    ";
+    output << std::fixed << std::setprecision(8) << camera_state.quat_.coeffs().transpose();
     return output;
 };
 
 std::ostream &operator<<(std::ostream &output, const Feature &feature)
 {
-    output << std::setw(9) << std::setfill('0') << feature.feature_id_ << "  ";
-    output << std::fixed << std::setprecision(8) << feature.observation_uv_;
+    output << std::setw(9) << feature.feature_id_ << "  ";
+    output << std::fixed << std::setprecision(8) << feature.observation_uv_ << "    ";
+    output << std::fixed << std::setprecision(4) << feature.raw_uv_;
     return output;
 };
 

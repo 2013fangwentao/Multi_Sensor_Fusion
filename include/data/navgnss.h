@@ -71,6 +71,7 @@ public:
 private:
 	void ReadingData();
 	void DetermineBreakTime(const std::vector<double> &break_time);
+	void DetermineBreakTimeArray(const std::vector<double> &break_time);
 	bool IsBreak(double sow);
 
 private:

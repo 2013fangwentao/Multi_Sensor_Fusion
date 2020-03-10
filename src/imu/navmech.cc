@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Sat Jul 13 下午10:53:27 2019 little fang
-** Last update Mon Feb 9 下午1:40:42 2020 little fang
+** Last update Wed Mar 10 上午11:56:00 2020 little fang
 */
 
 #include "imu/navmech.h"
@@ -116,7 +116,8 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
 
     static int scale_of_acce = config->get<int>("evaluate_imu_scale") == 0 ? 0 : 3;
     static int scale_of_gyro = scale_of_acce;
-    static int rows = 15 + scale_of_acce + scale_of_gyro, cols = rows;
+    static int camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") == 0 ? 0 : 3;
+    static int rows = 15 + scale_of_acce + scale_of_gyro + camera_imu_rotation, cols = rows;
     static double corr_time_of_gyro_bias = config->get<double>("corr_time_of_gyro_bias") * constant_hour;
     static double corr_time_of_acce_bias = config->get<double>("corr_time_of_acce_bias") * constant_hour;
     static double corr_time_of_gyro_scale = 0, corr_time_of_acce_scale = 0;

@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Mon Feb 9 下午1:44:42 2020 little fang
+** Last update Wed Feb 11 下午12:29:44 2020 little fang
 */
 
 #include "filter/navfilter.h"
@@ -34,8 +34,7 @@ bool KalmanFilter::InitialStateCov(const Eigen::VectorXd &init_state_cov)
   {
     ConfigInfo::Ptr getconfig = ConfigInfo::GetInstance();
 
-    std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/" +
-                                  getconfig->get<std::string>("filter_debug_cov_file");
+    std::string debug_info_path = getconfig->get<std::string>("result_output_path") + "/filter";
     debug_info_path.append(".log-" + (utiltool::NavTime::NowTime()).Time2String("%04d-%02d-%02d-%02d-%02d-%4.1f"));
     debug_log_file_.open(debug_info_path);
     LOG(INFO) << "filter_debug_cov_file: " << debug_info_path << std::endl;

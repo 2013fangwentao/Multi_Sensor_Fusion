@@ -57,8 +57,17 @@ bool FileGnssData::StartReadGnssData()
 		log_path += "/gnss-data-" + time.Time2String() + ".log";
 		ofs_log_.open(log_path);
 	}
-	auto break_time = config->get_array<double>("gnss_break");
-	DetermineBreakTime(break_time);
+	bool break_time_type = (config->get<int>("gnss_break_type") == 0 ? true : false);
+	if (break_time_type)
+	{
+		auto break_time = config->get_array<double>("gnss_break");
+		DetermineBreakTime(break_time);
+	}
+	else
+	{
+		auto break_time = config->get_array<double>("gnss_break_array");
+		DetermineBreakTimeArray(break_time);
+	}
 	aint_markofcollectdata_ = 0;
 	std::thread th(&FileGnssData::ReadingData, this);
 	th_collectgdata_ = std::move(th);
@@ -158,7 +167,20 @@ void FileGnssData::ReadingData()
 	ifs_file_.close();
 }
 
-void FileGnssData::DetermineBreakTime(const std::vector<double>& break_time)
+void FileGnssData::DetermineBreakTimeArray(const std::vector<double> &break_time)
+{
+	bound_count_ = break_time.size() / 2;
+	bound_count_ = bound_count_ > 20 ? 20 : bound_count_;
+	memset(low_bound_, 0x0, sizeof(double) * 20);
+	memset(up_bound_, 0x0, sizeof(double) * 20);
+	for (int i = 0; i < bound_count_; i++)
+	{
+		low_bound_[i] = break_time.at(2 * i + 0);
+		up_bound_[i] = break_time.at(2 * i + 1);
+	}
+}
+
+void FileGnssData::DetermineBreakTime(const std::vector<double> &break_time)
 {
 	memset(low_bound_, 0x0, sizeof(double) * 20);
 	memset(up_bound_, 0x0, sizeof(double) * 20);
@@ -170,6 +192,7 @@ void FileGnssData::DetermineBreakTime(const std::vector<double>& break_time)
 	{
 		low_bound_[i] = breakstart + (breakinterval + breaktime) * i;
 		up_bound_[i] = breakstart + breaktime + (breakinterval + breaktime) * i;
+		LOG(ERROR) << "break time: " << low_bound_[i] <<","<< up_bound_[i] << std::endl;
 	}
 }
 

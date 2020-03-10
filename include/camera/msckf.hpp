@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Tue Feb 10 下午12:33:50 2020 little fang
+** Last update Tue Mar 9 下午5:14:26 2020 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -70,9 +70,10 @@ private:
     bool GatingTest(const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const int &dof);
 
     void NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distorted,
-                      std::vector<cv::Point2f> &keypoint_undistorted,
-                      const cv::Mat &camera_mat_);
+                       std::vector<cv::Point2f> &keypoint_undistorted,
+                       const cv::Mat &camera_mat_);
     void Test();
+    bool CheckStaticMotion();
 
 private:
     std::vector<cv::DMatch> matches_;
@@ -84,16 +85,15 @@ private:
     std::vector<cv::Point2f> pre_frame_keypoints_;
     std::vector<cv::Point2f> curr_frame_keypoints_;
     std::vector<unsigned long long int> keypoints_id_;
-    std::map<unsigned long long int,FeatureId> keypoints_featureid_;
+    std::map<unsigned long long int, FeatureId> keypoints_featureid_;
 
     std::map<FeatureId, Feature> map_feature_set_;
     std::map<FeatureId, Feature> map_observation_set_;
     std::map<StateId, CameraState> map_state_set_;
 
     std::vector<int> inlier_markers;
-    
+
 private:
-    bool camera_feature_log_ = false;
     bool is_first_ = true;
     double tracking_rate_ = 1.0;
     cv::Mat camera_mat_;
@@ -105,7 +105,17 @@ private:
     utiltool::NavInfo nav_info_;
 
     cv::Mat pre_img;
-    std::ofstream ofs_camera_feature_log_file_;
+
+private:
+    std::ofstream ofs_camera_state_log_file_;
+    std::ofstream ofs_msckf_info_log_file_;
+    std::ofstream ofs_debug_info_log_file_;
+    std::ofstream ofs_feature_log_file_;
+    // std::ofstream ofs_feature_log_file_;
+    bool camera_state_log_enable_ = false;
+    bool msckf_info_log_enable_ = false;
+    bool debug_info_log_enable_ = false;
+    bool feature_log_enable_ = false;
 };
 
 struct ReprojectionError

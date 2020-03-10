@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  undefined Jul 21 下午9:14:23 2019 little fang
-** Last update Sun Nov 9 上午9:47:57 2019 little fang
+** Last update Wed Mar 10 上午11:51:53 2020 little fang
 */
 #include "imu/navinitialized.h"
 #include "navearth.hpp"
@@ -80,6 +80,7 @@ bool InitializedNav::StartAligning(utiltool::NavInfo &nav_info)
     std::vector<ImuData::Ptr> imu_data_buffer;
     static double velocity_threshold = config->get<double>("alignnment_velocity_threshold");
     bool use_set_attitude = (config->get<int>("alignnment_attitude_mode") != 0);
+    bool use_set_posvel = (config->get<int>("alignnment_posvel_mode") != 0);
     /* 赋值其他设定项 */
     std::vector<double>
         vec_value_tmp = config->get_array<double>("leverarm");
@@ -258,6 +259,11 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
         PVariance.segment<3>(index.acce_scale_index_) << acce_scale_std.at(0), acce_scale_std.at(1), acce_scale_std.at(2);
         PVariance.segment<3>(index.acce_scale_index_) *= constant_ppm;
     }
+    bool evaluate_camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") != 0 ? true : false;
+    if (evaluate_camera_imu_rotation)
+    {
+        PVariance.segment<3>(index.camera_rotation_index_) << 0.1_deg, 0.1_deg, 0.1_deg;
+    }
     //TODO 使用其他状态量是确定其初始方差.
     return PVariance;
 }
@@ -270,6 +276,7 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
 void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
 {
     int evaluate_imu_scale = config->get<int>("evaluate_imu_scale");
+    bool evaluate_camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") != 0 ? true : false;
     // bool rotation_iv = config->get<int>("evaluate_imu_vehicle_rotation");
     state_index.pos_index_ = 0;
     state_index.vel_index_ = 3;
@@ -282,6 +289,11 @@ void InitializedNav::SetStateIndex(utiltool::StateIndex &state_index)
         state_index.gyro_scale_index_ = basic_index + 3;
         state_index.acce_scale_index_ = basic_index + 6;
         basic_index += 6;
+    }
+    if (evaluate_camera_imu_rotation)
+    {
+        state_index.camera_rotation_index_ = basic_index + 3;
+        basic_index += 3;
     }
     state_index.total_state = basic_index + 3; //TODO 需要调整
     // TODO 使用里程计,相机等需要更新其他状态量的参数索引

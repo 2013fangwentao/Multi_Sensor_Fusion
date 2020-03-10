@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Tue Feb 10 下午6:30:16 2020 little fang
+** Last update Wed Mar 10 上午11:09:17 2020 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -59,8 +59,8 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
         LOG(ERROR) << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl;
-    // (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
-    cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
+    (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
+    // cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
     return;
 }
 
@@ -75,7 +75,7 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
                                       std::vector<unsigned long long int> &keypoints_id,
                                       std::vector<cv::Point2f> &keypoints)
 {
-    static int grid_cols = 4, grid_rows = 4, min_num_points = 5, max_num_points = 20;
+    static int grid_cols = 4, grid_rows = 4, min_num_points = 5, max_num_points = 30;
     int grid_height = static_cast<int>(image.rows / grid_rows) + 1;
     int grid_width = static_cast<int>(image.cols / grid_cols) + 1;
 
@@ -111,15 +111,21 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
         cv::Range col_range(left_lim, right_lim);
         mask(row_range, col_range) = 0;
     }
-    
-    // cv::Range row_range(280, image.rows);
+
+    // cv::Range row_range(240, image.rows);
     // cv::Range col_range(0, image.cols);
     // mask(row_range, col_range) = 0;
+    
+    // std::vector<cv::KeyPoint> kkeypoints_new;
+    // cv::Mat descriptors;
+    // (*orb_extractor_)(image, mask, kkeypoints_new, descriptors);
 
-    cv::goodFeaturesToTrack(image, keypoints_new, 1200, 0.01, 15, mask);
+    cv::goodFeaturesToTrack(image, keypoints_new, 1200, 0.01, 5, mask, 5);
 
+    // for (auto iter_tmp : kkeypoints_new)
     for (auto iter : keypoints_new)
     {
+        // auto &iter = iter_tmp.pt;
         int row = static_cast<int>(iter.y / grid_height);
         int col = static_cast<int>(iter.x / grid_width);
         int code = row * grid_cols + col;
@@ -225,9 +231,9 @@ LEAP:
         matches.clear();
         goto LEAP;
     }
-    else if (matches.size() > 800)
+    else if (matches.size() > 120)
     {
-        threshold_distance *= 0.5;
+        threshold_distance *= 0.75;
         matches.clear();
         goto LEAP;
         LOG(WARNING) << "threshold_distance is " << threshold_distance
@@ -411,7 +417,7 @@ void ImageProcess::TwoPointRansac(
     //if (mean_pt_distance < inlier_error*norm_pixel_unit) {
     if (mean_pt_distance < norm_pixel_unit)
     {
-        LOG(ERROR) << 1.0 << "Degenerated motion..." << std::endl;        
+        LOG(ERROR) << 1.0 << "Degenerated motion..." << std::endl;
         for (int i = 0; i < pts_diff.size(); ++i)
         {
             if (inlier_markers[i] == 0)

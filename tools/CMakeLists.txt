@@ -25,3 +25,9 @@ target_link_libraries(picture_preprocess tools)
 
 add_executable(PrintKeypoints ./PrintKeypoints.cc)
 target_link_libraries(PrintKeypoints tools ${OpenCV_LIBS})
+
+add_executable(calibration ./calibration.cc)
+target_link_libraries(calibration ${OpenCV_LIBS})
+
+add_executable(ImagePreview ./ImagePreview.cc)
+target_link_libraries(ImagePreview tools ${OpenCV_LIBS})

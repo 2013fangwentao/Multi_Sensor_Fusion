@@ -225,7 +225,8 @@ void State::StartProcessing()
                 ReviseState(dx);
                 if (camera_enable)
                 {
-                    msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state));
+                    int cam_imu_idx = config_->get<int>("evaluate_camera_imu_rotation") == 0 ? 0 : 3;
+                    msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state + cam_imu_idx));
                 }
                 ptr_gnss_data = nullptr;
             }
