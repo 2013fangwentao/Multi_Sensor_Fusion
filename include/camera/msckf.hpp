@@ -7,7 +7,7 @@
 ** Camera State, 每一帧中记录当前的Camera对应的状态，位姿
 **
 ** Started on  Tue Aug 6 下午3:19:51 2019 little fang
-** Last update Tue Mar 9 下午5:14:26 2020 little fang
+** Last update Sat Mar 13 下午1:22:10 2020 little fang
 */
 
 #ifndef MSCKFPROCESS_H_
@@ -73,6 +73,7 @@ private:
                        std::vector<cv::Point2f> &keypoint_undistorted,
                        const cv::Mat &camera_mat_);
     void Test();
+    bool LMOptimizatePositionAndCheck(Feature &feature);
     bool CheckStaticMotion();
 
 private:

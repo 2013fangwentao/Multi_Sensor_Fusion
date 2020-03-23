@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午5:13:31 2019 little fang
-** Last update Tue Feb 10 下午12:34:28 2020 little fang
+** Last update Sun Mar 14 下午1:38:05 2020 little fang
 */
 
 #ifndef IMAGE_PROCESS_H_
@@ -13,6 +13,7 @@
 
 #include <memory>
 #include <opencv2/features2d/features2d.hpp>
+#include <opencv2/opencv.hpp>
 #include "ORBextractor.h"
 
 namespace mscnav
@@ -28,6 +29,9 @@ private:
     static cv::Ptr<cv::DescriptorMatcher> matcher_;
     static bool is_initialed_;
     static cv::Ptr<cv::ORB> cv_orb_;
+    static cv::Ptr<cv::Feature2D> cv_detector_ptr;
+    static cv::CascadeClassifier CarDetector;
+    static cv::CascadeClassifier BodyDetector;
 
 private:
     ImageProcess() {}
@@ -45,6 +49,11 @@ public:
                                    std::vector<unsigned long long int> &keypoints_id,
                                    std::vector<cv::Point2f> &keypoints);
 
+    static void PredictFeatureTracking(const std::vector<cv::Point2f> &input_pts,
+                                       const cv::Matx33f &R_p_c,
+                                       const cv::Matx33f &intrinsics,
+                                       std::vector<cv::Point2f> &compensated_pts);
+
     static void LKTrack(const cv::Mat &pre_image,
                         const cv::Mat &curr_image,
                         // const Eigen::Matrix3d &rotation,
@@ -58,7 +67,7 @@ public:
                               const cv::Mat &descriptors2,
                               std::vector<cv::DMatch> &matches,
                               float default_min_distance = 40.0);
-                              
+
     static void TwoPointRansac(const std::vector<cv::Point2f> &pts1,
                                const std::vector<cv::Point2f> &pts2,
                                const cv::Matx33f &R_p_c,
@@ -75,12 +84,11 @@ private:
 
     static void OutlierRemove(std::vector<cv::Point2f> &keypoints1,
                               std::vector<cv::Point2f> &keypoints2,
-                                // const Eigen::Matrix3d &rotation,
+                              // const Eigen::Matrix3d &rotation,
                               std::vector<unsigned long long int> &keypoints_id);
     static void rescalePoints(std::vector<cv::Point2f> &pts1,
                               std::vector<cv::Point2f> &pts2,
                               float &scaling_factor);
-
 };
 
 } // namespace camera

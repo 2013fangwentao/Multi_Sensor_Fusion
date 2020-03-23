@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Wed Mar 10 上午11:09:17 2020 little fang
+** Last update Sun Mar 14 下午2:26:23 2020 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -26,7 +26,10 @@ namespace camera
 bool ImageProcess::is_initialed_(false);
 std::shared_ptr<ORBextractor> ImageProcess::orb_extractor_(nullptr);
 cv::Ptr<cv::DescriptorMatcher> ImageProcess::matcher_(cv::DescriptorMatcher::create("BruteForce-Hamming"));
-cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create(1200));
+cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create(200));
+cv::Ptr<cv::Feature2D> ImageProcess::cv_detector_ptr(cv::FastFeatureDetector::create(20));
+cv::CascadeClassifier ImageProcess::CarDetector("sideview_cascade_classifier.xml");
+cv::CascadeClassifier ImageProcess::BodyDetector("haarcascade_fullbody.xml");
 
 void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
                               int ini_th_fast, int min_th_fast)
@@ -64,6 +67,61 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
     return;
 }
 
+static bool compare_keypoint(cv::KeyPoint p1, cv::KeyPoint p2)
+{
+    return p1.response > p2.response;
+}
+
+/**
+ * @brief 根据单应性原理：已知一个平面的关键点可以得到另一个平面的关键点
+ * @param input_pts：上一时刻的第一个相机对应的关键点
+ * @param R_p_c: 利用imu数据计算得到的前后两个时刻图像帧的旋转初值
+ * @param intrinsics:相机内参
+ * @return compensated_pts:根据上一帧图像中的关键点位置预测得到当前帧的关键点位置
+ *
+ */
+void ImageProcess::PredictFeatureTracking(
+    const std::vector<cv::Point2f> &input_pts,
+    const cv::Matx33f &R_p_c,
+    const cv::Matx33f &intrinsics,
+    std::vector<cv::Point2f> &compensated_pts)
+{
+
+    // Return directly if there are no input features.
+    if (input_pts.size() == 0)
+    {
+        compensated_pts.clear();
+        return;
+    }
+    compensated_pts.resize(input_pts.size());
+
+    // Intrinsic matrix.
+    // 相机内参矩阵K
+    // cv::Matx33f K(
+    //     intrinsics[0], 0.0, intrinsics[2],
+    //     0.0, intrinsics[1], intrinsics[3],
+    //     0.0, 0.0, 1.0);
+
+    // 单应性矩阵的计算，公式推到：
+    // x1 = K * X1_c; x2 = K * X2_c
+    // x2_c = H * x1_c; X1_C = R_2_1 * X2_c
+    // x1 = K * R_1_2 * K^inv * x2 --> H = K * R_1_2 * K^inv
+    // TODO:这里应该还有平移向量，预测一个值所以可以去掉？
+    cv::Matx33f H = intrinsics * R_p_c * intrinsics.inv();
+
+    for (int i = 0; i < input_pts.size(); ++i)
+    {
+        cv::Vec3f p1(input_pts[i].x, input_pts[i].y, 1.0f);
+        // 两个平面中的匹配点满足: x2 = H * x1
+        // 归一化后的齐次坐标即另一个平面上匹配点的图像坐标
+        cv::Vec3f p2 = H * p1;
+        compensated_pts[i].x = p2[0] / p2[2];
+        compensated_pts[i].y = p2[1] / p2[2];
+    }
+
+    return;
+}
+
 /**
  * @brief  调用opencv的goodFeaturesToTrack提取角点
  * @note   
@@ -75,11 +133,12 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
                                       std::vector<unsigned long long int> &keypoints_id,
                                       std::vector<cv::Point2f> &keypoints)
 {
-    static int grid_cols = 4, grid_rows = 4, min_num_points = 5, max_num_points = 30;
-    int grid_height = static_cast<int>(image.rows / grid_rows) + 1;
-    int grid_width = static_cast<int>(image.cols / grid_cols) + 1;
+    static int grid_cols = 6, grid_rows = 6, min_num_points = 8, max_num_points = 12;
+    static int grid_height = static_cast<int>(image.rows / grid_rows) + 1;
+    static int grid_width = static_cast<int>(image.cols / grid_cols) + 1;
 
-    std::vector<std::vector<cv::Point2f *>> keypoints_tmp(grid_cols * grid_rows);
+    // std::vector<std::vector<cv::Point2f *>> keypoints_tmp(grid_cols * grid_rows);
+    std::vector<int> keypoints_tmp(grid_cols * grid_rows);
     std::vector<cv::Point2f> keypoints_new;
 
     for (auto iter : keypoints)
@@ -87,18 +146,33 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
         int row = static_cast<int>(iter.y / grid_height);
         int col = static_cast<int>(iter.x / grid_width);
         int code = row * grid_cols + col;
-        keypoints_tmp.at(code).emplace_back(&iter);
+        // keypoints_tmp.at(code).emplace_back(&iter);
+        keypoints_tmp.at(code) += 1;
     }
 
     cv::Mat mask(image.rows, image.cols, CV_8U, cv::Scalar(1));
+
+    // // cv::Mat img = image.clone();
+    // std::vector<cv::Rect> objects;
+    // CarDetector.detectMultiScale(image, objects);
+    // for (int i = 0; i < objects.size(); i++)
+    // {
+    //     mask(objects[i]) = 0;
+    // }
+    // objects.clear();
+    // BodyDetector.detectMultiScale(image, objects);
+    // for (int i = 0; i < objects.size(); i++)
+    // {
+    //     mask(objects[i]) = 0;
+    // }
 
     for (auto &point : keypoints)
     {
         const int y = static_cast<int>(point.y);
         const int x = static_cast<int>(point.x);
 
-        int up_lim = y - 2, bottom_lim = y + 3,
-            left_lim = x - 2, right_lim = x + 3;
+        int up_lim = y - 15, bottom_lim = y + 15,
+            left_lim = x - 15, right_lim = x + 15;
         if (up_lim < 0)
             up_lim = 0;
         if (bottom_lim > image.rows)
@@ -111,32 +185,82 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
         cv::Range col_range(left_lim, right_lim);
         mask(row_range, col_range) = 0;
     }
+    for (size_t i = 0; i < grid_rows; i++)
+    {
+        // if (i == 3 || i == 4)
+        //     continue;
+        for (size_t j = 0; j < grid_cols; j++)
+        {
+            // if (i == 5 && (j == 0 || j == 5))
+            //     continue;
+            if (keypoints_tmp.at(i * grid_rows + j) > min_num_points)
+            {
+                continue;
+            }
+            else
+            {
+                cv::Mat mask_tmp = mask.clone();
+                if (i * grid_height != 0)
+                {
+                    cv::Range row_range(0, i * grid_height);
+                    cv::Range col_range(0, image.cols);
+                    mask_tmp(row_range, col_range) = 0;
+                }
+                if ((i + 1) * grid_height < image.rows)
+                {
+                    cv::Range row_range((i + 1) * grid_height, image.rows);
+                    cv::Range col_range(0, image.cols);
+                    mask_tmp(row_range, col_range) = 0;
+                }
+                if (j * grid_width != 0)
+                {
+                    cv::Range row_range(0, image.rows);
+                    cv::Range col_range(0, j * grid_width);
+                    mask_tmp(row_range, col_range) = 0;
+                }
+                if ((j + 1) * grid_width < image.cols)
+                {
+                    cv::Range row_range(0, image.rows);
+                    cv::Range col_range((j + 1) * grid_width, image.cols);
+                    mask_tmp(row_range, col_range) = 0;
+                }
+                std::vector<cv::KeyPoint> kkeypoints_new;
+                cv_detector_ptr->detect(image, kkeypoints_new, mask_tmp);
+                std::sort(kkeypoints_new.begin(), kkeypoints_new.end(), compare_keypoint);
+                int rest_size = max_num_points - keypoints_tmp.at(i * grid_rows + j);
+                for (size_t kk = 0; kk < kkeypoints_new.size() && kk < rest_size; kk++)
+                {
+                    keypoints_id.emplace_back(PointID++);
+                    keypoints.emplace_back(kkeypoints_new.at(kk).pt);
+                    keypoints_tmp.at(i * grid_rows + j) += 1;
+                }
+            }
+        }
+    }
 
-    // cv::Range row_range(240, image.rows);
+    // cv::Range row_range(220, image.rows);
     // cv::Range col_range(0, image.cols);
     // mask(row_range, col_range) = 0;
-    
     // std::vector<cv::KeyPoint> kkeypoints_new;
     // cv::Mat descriptors;
     // (*orb_extractor_)(image, mask, kkeypoints_new, descriptors);
-
-    cv::goodFeaturesToTrack(image, keypoints_new, 1200, 0.01, 5, mask, 5);
-
+    // cv_orb_->detect(image, kkeypoints_new, mask);
+    // cv::goodFeaturesToTrack(image, keypoints_new, 200, 0.01, 5, mask, 5);
     // for (auto iter_tmp : kkeypoints_new)
-    for (auto iter : keypoints_new)
-    {
-        // auto &iter = iter_tmp.pt;
-        int row = static_cast<int>(iter.y / grid_height);
-        int col = static_cast<int>(iter.x / grid_width);
-        int code = row * grid_cols + col;
-        if (keypoints_tmp.at(code).size() > max_num_points)
-        {
-            continue;
-        }
-        keypoints_id.emplace_back(PointID++);
-        keypoints.emplace_back(iter);
-        keypoints_tmp.at(code).emplace_back(&iter);
-    }
+    // // for (auto iter : keypoints_new)
+    // {
+    //     auto &iter = iter_tmp.pt;
+    //     int row = static_cast<int>(iter.y / grid_height);
+    //     int col = static_cast<int>(iter.x / grid_width);
+    //     int code = row * grid_cols + col;
+    //     if (keypoints_tmp.at(code).size() > max_num_points)
+    //     {
+    //         continue;
+    //     }
+    //     keypoints_id.emplace_back(PointID++);
+    //     keypoints.emplace_back(iter);
+    //     keypoints_tmp.at(code).emplace_back(&iter);
+    // }
     return;
 }
 
@@ -156,7 +280,41 @@ void ImageProcess::LKTrack(const cv::Mat &pre_image,
                            std::vector<cv::Point2f> &pre_keypoints,
                            std::vector<cv::Point2f> &curr_keypoints)
 {
-    curr_keypoints.clear();
+    static cv::Size patch_size(21, 21);
+    // std::vector<cv::Mat> pre_img_pyramid, curr_img_pyramid;
+    // cv::buildOpticalFlowPyramid(
+    //     pre_image,
+    //     pre_img_pyramid,
+    //     patch_size,
+    //     3,
+    //     true,
+    //     cv::BORDER_REFLECT_101,
+    //     cv::BORDER_CONSTANT,
+    //     false);
+
+    // cv::buildOpticalFlowPyramid(
+    //     curr_image,
+    //     curr_img_pyramid,
+    //     patch_size,
+    //     3,
+    //     true,
+    //     cv::BORDER_REFLECT_101,
+    //     cv::BORDER_CONSTANT,
+    //     false);
+    // cv::Mat mask(curr_image.rows, curr_image.cols, CV_8U, cv::Scalar(1));
+    // std::vector<cv::Rect> objects;
+    // CarDetector.detectMultiScale(curr_image, objects);
+    // for (int i = 0; i < objects.size(); i++)
+    // {
+    //     mask(objects[i]) = 0;
+    // }
+    // objects.clear();
+    // BodyDetector.detectMultiScale(curr_image, objects);
+    // for (int i = 0; i < objects.size(); i++)
+    // {
+    //     mask(objects[i]) = 0;
+    // }
+
     std::vector<uchar> status; // status of tracked features
     std::vector<float> err;    // error in tracking
     cv::calcOpticalFlowPyrLK(pre_image,
@@ -164,13 +322,16 @@ void ImageProcess::LKTrack(const cv::Mat &pre_image,
                              pre_keypoints,
                              curr_keypoints,
                              status,
-                             err);
+                             err,
+                             patch_size,
+                             3);
     int k = 0;
     for (int i = 0; i < curr_keypoints.size(); i++)
     {
         if (status[i] &&
-            curr_keypoints[i].x > 1.0 && curr_keypoints[i].y > 1.0 &&
-            curr_keypoints[i].x < curr_image.cols - 3 && curr_keypoints[i].y < curr_image.rows - 3)
+            curr_keypoints[i].x > 8.0 && curr_keypoints[i].y > 8.0 &&
+            curr_keypoints[i].x < curr_image.cols - 8.0 && curr_keypoints[i].y < curr_image.rows - 8.0/* &&
+            mask.at<int>(int(curr_keypoints[i].x), int(curr_keypoints[i].y)) != 0*/)
         {
             keypoints_id[k] = keypoints_id[i];
             curr_keypoints[k] = curr_keypoints[i];
@@ -181,7 +342,12 @@ void ImageProcess::LKTrack(const cv::Mat &pre_image,
     keypoints_id.resize(k);
     curr_keypoints.resize(k);
     pre_keypoints.resize(k);
-    // OutlierRemove(pre_keypoints, curr_keypoints, keypoints_id);
+    if(curr_keypoints.size() ==0)
+    {
+        LOG(ERROR) << "TRACK LOST" << std::endl;
+        return;
+    }
+    OutlierRemove(pre_keypoints, curr_keypoints, keypoints_id);
 }
 
 /**
@@ -259,7 +425,7 @@ void ImageProcess::OutlierRemove(std::vector<cv::Point2f> &keypoints1,
                                  std::vector<unsigned long long int> &keypoints_id)
 {
     std::vector<uchar> ransac_status;
-    cv::Mat Homography = cv::findFundamentalMat(keypoints1, keypoints2, ransac_status, cv::FM_RANSAC, 8.0);
+    cv::Mat Homography = cv::findFundamentalMat(keypoints1, keypoints2, ransac_status, cv::FM_RANSAC, 3.0);
     LOG_IF(ERROR, (ransac_status.size() != keypoints1.size())) << " ERROR ransac size != matches size" << std::endl;
     int k = 0;
     for (size_t i = 0; i < ransac_status.size(); i++)
@@ -384,7 +550,7 @@ void ImageProcess::TwoPointRansac(
         // However, to be used with aggressive motion, this tolerance should
         // be increased significantly to match the usage.
         // 阈值设为50个像素差
-        if (distance > 50.0 * norm_pixel_unit)
+        if (distance > 5.0 * norm_pixel_unit)
         {
             inlier_markers[i] = 0;
         }

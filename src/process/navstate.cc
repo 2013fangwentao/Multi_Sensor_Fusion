@@ -149,7 +149,7 @@ bool State::InitializeState()
     {
         LOG(ERROR) << "Open Result File Failed\t" << output_file_path << std::endl;
     }
-    ofs_result_output_ << nav_info_ << std::endl;
+    // ofs_result_output_ << nav_info_ << std::endl;
     nav_info_bak_ = nav_info_;
     return true;
 }
@@ -232,7 +232,6 @@ void State::StartProcessing()
             }
             else if (ptr_camera_data != nullptr)
             {
-
                 msckf_process_->ProcessImage(ptr_camera_data->image_, ptr_camera_data->get_time(), nav_info_);
                 ptr_camera_data = nullptr;
             }
@@ -255,6 +254,9 @@ void State::StartProcessing()
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */
         base_data = data_queue_->GetData();
+        // LOG(INFO) << "base_data time: " << base_data->get_type() << "  "
+        //           << std::fixed << std::setprecision(8)
+        //           << base_data->get_time().SecondOfWeek() << std::endl;
         if (base_data->get_type() == IMUDATA)
         {
             ptr_curr_imu_data = std::dynamic_pointer_cast<ImuData>(base_data);
