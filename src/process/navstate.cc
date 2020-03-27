@@ -173,6 +173,7 @@ void State::StartProcessing()
     }
     static int state_count = filter_->GetStateSize();
     static int output_rate = config_->get<int>("result_output_rate");
+    static auto &index = filter_->GetStateIndex();
     GnssData::Ptr ptr_gnss_data = nullptr;
     CameraData::Ptr ptr_camera_data = nullptr;
     ImuData::Ptr ptr_pre_imu_data = std::make_shared<ImuData>(), ptr_curr_imu_data;
@@ -197,6 +198,7 @@ void State::StartProcessing()
             break;
         }
     }
+    bool gnss_update = false;
     while (true)
     {
         if (ptr_curr_imu_data != nullptr)
@@ -213,7 +215,15 @@ void State::StartProcessing()
         {
             /* time update */
             double dt = base_data->get_time() - latest_update_time_;
-            Eigen::MatrixXd Q = (PHI * state_q_ * PHI.transpose() + state_q_) * 0.5 * dt;
+            auto &Rbe = nav_info_.rotation_;
+            Eigen::MatrixXd state_q_used = state_q_;
+            state_q_used.block<3, 3>(index.pos_index_, index.pos_index_) =
+                Rbe * state_q_used.block<3, 3>(index.pos_index_, index.pos_index_) * Rbe.transpose();
+            state_q_used.block<3, 3>(index.vel_index_, index.vel_index_) =
+                Rbe * state_q_used.block<3, 3>(index.vel_index_, index.vel_index_) * Rbe.transpose();
+            state_q_used.block<3, 3>(index.att_index_, index.att_index_) =
+                Rbe * state_q_used.block<3, 3>(index.pos_index_, index.pos_index_) * Rbe.transpose();
+            Eigen::MatrixXd Q = (PHI * state_q_used * PHI.transpose() + state_q_used) * 0.5 * dt;
             filter_->TimeUpdate(PHI, Q, base_data->get_time());
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
             latest_update_time_ = base_data->get_time();
@@ -229,6 +239,7 @@ void State::StartProcessing()
                     msckf_process_->ReviseCameraState(dx.tail(dx.size() - filter_->GetStateIndex().total_state + cam_imu_idx));
                 }
                 ptr_gnss_data = nullptr;
+                gnss_update = true;
             }
             else if (ptr_camera_data != nullptr)
             {
@@ -237,7 +248,7 @@ void State::StartProcessing()
             }
         }
 
-        int idt = int((nav_info_.time_.Second()) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
+        int idt = int((nav_info_.time_.Second() + 0.00005) * output_rate) - int(nav_info_bak_.time_.Second() * output_rate);
         if (idt > 0)
         {
             double second_of_week = nav_info_.time_.SecondOfWeek();
@@ -250,6 +261,7 @@ void State::StartProcessing()
             ofs_result_output_ << output_nav << std::endl;
             if (fabs(int(output_nav.time_.SecondOfWeek()) - output_nav.time_.SecondOfWeek() < 0.04))
                 LOG(ERROR) << output_nav.time_ << std::endl;
+            gnss_update = false;
         }
         nav_info_bak_ = nav_info_;
         /*获取新的数据 */

@@ -67,6 +67,7 @@ private:
 
     void RemoveCameraState();
     void RemoveRedundantCamStates(utiltool::NavInfo &navinfo);
+    void RemoveRedundantCamStates();
     bool GatingTest(const Eigen::MatrixXd &H, const Eigen::VectorXd &r, const int &dof);
 
     void NormKeyPoints(const std::vector<cv::Point2f> &keypoint_distorted,

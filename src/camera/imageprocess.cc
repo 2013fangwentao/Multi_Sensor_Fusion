@@ -5,15 +5,17 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Sun Mar 14 下午2:26:23 2020 little fang
+** Last update Sat Mar 27 下午1:32:59 2020 little fang
 */
 
 #include "camera/imageprocess.h"
 #include "navlog.hpp"
-#include <Eigen/Dense>
+#include "navbase.hpp"
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/calib3d/calib3d.hpp>
 #include <opencv2/video/tracking.hpp>
+#include <opencv2/core/eigen.hpp>
+#include "Eigen/Dense"
 
 using namespace ORB_SLAM2;
 
@@ -70,6 +72,54 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
 static bool compare_keypoint(cv::KeyPoint p1, cv::KeyPoint p2)
 {
     return p1.response > p2.response;
+}
+
+void ImageProcess::CheckFeatureTrack(std::vector<cv::Point2f> &pre_keypoints,
+                                     std::vector<cv::Point2f> &curr_keypoints,
+                                     std::vector<unsigned long long int> &keypoints_id,
+                                     const Eigen::Matrix3d &R_p_c,
+                                     const Eigen::Vector3d &t_p_c,
+                                     const cv::Mat &dist_coeffs,
+                                     const cv::Mat &intrinsics)
+{
+    std::vector<int> status(pre_keypoints.size());
+    std::fill(status.begin(), status.end(), 1);
+    std::vector<cv::Point2f> pre_keypoints_undistorted, curr_keypoints_undistorted;
+    cv::undistortPoints(pre_keypoints, pre_keypoints_undistorted,
+                        intrinsics, dist_coeffs, cv::noArray(), intrinsics);
+    cv::undistortPoints(curr_keypoints, curr_keypoints_undistorted,
+                        intrinsics, dist_coeffs, cv::noArray(), intrinsics);
+    Eigen::Matrix3d K;
+    cv::cv2eigen(intrinsics, K);
+    K = K.inverse();
+
+    Eigen::Matrix3d t_p_c_skew = utiltool::skew(t_p_c);
+    for (size_t i = 0; i < pre_keypoints.size(); i++)
+    {
+        Eigen::Vector3d p1(pre_keypoints_undistorted[i].x, pre_keypoints_undistorted[i].y, 1.0);
+        Eigen::Vector3d p2(curr_keypoints_undistorted[i].x, curr_keypoints_undistorted[i].y, 1.0);
+        Eigen::MatrixXd coeff = p2.transpose() * K.transpose() * t_p_c_skew * R_p_c * K * p1;
+        double threshold = coeff(0, 0) * 10e4;
+        if (fabs(threshold) > 5)
+        {
+            status[i] = 0;
+        }
+    }
+    int k = 0;
+    for (int i = 0; i < curr_keypoints.size(); i++)
+    {
+        if (status[i] == 1)
+        {
+            keypoints_id[k] = keypoints_id[i];
+            curr_keypoints[k] = curr_keypoints[i];
+            pre_keypoints[k] = pre_keypoints[i];
+            k++;
+        }
+    }
+    keypoints_id.resize(k);
+    curr_keypoints.resize(k);
+    pre_keypoints.resize(k);
+    return;
 }
 
 /**
@@ -133,7 +183,7 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
                                       std::vector<unsigned long long int> &keypoints_id,
                                       std::vector<cv::Point2f> &keypoints)
 {
-    static int grid_cols = 6, grid_rows = 6, min_num_points = 8, max_num_points = 12;
+    static int grid_cols = 6, grid_rows = 6, min_num_points = 15, max_num_points = 20;
     static int grid_height = static_cast<int>(image.rows / grid_rows) + 1;
     static int grid_width = static_cast<int>(image.cols / grid_cols) + 1;
 
@@ -171,8 +221,8 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
         const int y = static_cast<int>(point.y);
         const int x = static_cast<int>(point.x);
 
-        int up_lim = y - 15, bottom_lim = y + 15,
-            left_lim = x - 15, right_lim = x + 15;
+        int up_lim = y - 10, bottom_lim = y + 10,
+            left_lim = x - 10, right_lim = x + 10;
         if (up_lim < 0)
             up_lim = 0;
         if (bottom_lim > image.rows)
@@ -187,12 +237,8 @@ void ImageProcess::GoodFreatureDetect(const cv::Mat &image,
     }
     for (size_t i = 0; i < grid_rows; i++)
     {
-        // if (i == 3 || i == 4)
-        //     continue;
         for (size_t j = 0; j < grid_cols; j++)
         {
-            // if (i == 5 && (j == 0 || j == 5))
-            //     continue;
             if (keypoints_tmp.at(i * grid_rows + j) > min_num_points)
             {
                 continue;
@@ -329,9 +375,10 @@ void ImageProcess::LKTrack(const cv::Mat &pre_image,
     for (int i = 0; i < curr_keypoints.size(); i++)
     {
         if (status[i] &&
-            curr_keypoints[i].x > 8.0 && curr_keypoints[i].y > 8.0 &&
-            curr_keypoints[i].x < curr_image.cols - 8.0 && curr_keypoints[i].y < curr_image.rows - 8.0/* &&
-            mask.at<int>(int(curr_keypoints[i].x), int(curr_keypoints[i].y)) != 0*/)
+            curr_keypoints[i].x > 10.0 && curr_keypoints[i].y > 10.0 &&
+            curr_keypoints[i].x < curr_image.cols - 10.0 && curr_keypoints[i].y < curr_image.rows - 10.0 /* &&
+            mask.at<int>(int(curr_keypoints[i].x), int(curr_keypoints[i].y)) != 0*/
+        )
         {
             keypoints_id[k] = keypoints_id[i];
             curr_keypoints[k] = curr_keypoints[i];
@@ -342,7 +389,7 @@ void ImageProcess::LKTrack(const cv::Mat &pre_image,
     keypoints_id.resize(k);
     curr_keypoints.resize(k);
     pre_keypoints.resize(k);
-    if(curr_keypoints.size() ==0)
+    if (curr_keypoints.size() == 0)
     {
         LOG(ERROR) << "TRACK LOST" << std::endl;
         return;

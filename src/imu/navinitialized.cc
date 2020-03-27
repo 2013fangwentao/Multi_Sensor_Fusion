@@ -246,18 +246,18 @@ Eigen::VectorXd &InitializedNav::SetInitialVariance(Eigen::VectorXd &PVariance,
     auto gyro_bias_std = config->get_array<double>("gyro_bias_std");
     auto acce_bias_std = config->get_array<double>("acce_bias_std");
     PVariance.segment<3>(index.gyro_bias_index_) << gyro_bias_std.at(0), gyro_bias_std.at(1), gyro_bias_std.at(2);
-    PVariance.segment<3>(index.gyro_bias_index_) *=  constant::dh2rs;
+    PVariance.segment<3>(index.gyro_bias_index_) *= constant::dh2rs ;
     PVariance.segment<3>(index.acce_bias_index_) << acce_bias_std.at(0), acce_bias_std.at(1), acce_bias_std.at(2);
-    PVariance.segment<3>(index.acce_bias_index_) *=  constant_mGal;
+    PVariance.segment<3>(index.acce_bias_index_) *= constant_mGal ;
     bool evaluate_imu_scale = config->get<int>("evaluate_imu_scale") == 0 ? false : true;
     if (evaluate_imu_scale)
     {
         auto gyro_scale_std = config->get_array<double>("gyro_scale_std");
         auto acce_scale_std = config->get_array<double>("acce_scale_std");
         PVariance.segment<3>(index.gyro_scale_index_) << gyro_scale_std.at(0), gyro_scale_std.at(1), gyro_scale_std.at(2);
-        PVariance.segment<3>(index.gyro_scale_index_) *= constant_ppm;
+        PVariance.segment<3>(index.gyro_scale_index_) *= constant_ppm ;
         PVariance.segment<3>(index.acce_scale_index_) << acce_scale_std.at(0), acce_scale_std.at(1), acce_scale_std.at(2);
-        PVariance.segment<3>(index.acce_scale_index_) *= constant_ppm;
+        PVariance.segment<3>(index.acce_scale_index_) *= constant_ppm ;
     }
     bool evaluate_camera_imu_rotation = config->get<int>("evaluate_camera_imu_rotation") != 0 ? true : false;
     if (evaluate_camera_imu_rotation)

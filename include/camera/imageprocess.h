@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午5:13:31 2019 little fang
-** Last update Sun Mar 14 下午1:38:05 2020 little fang
+** Last update Fri Mar 26 下午7:39:51 2020 little fang
 */
 
 #ifndef IMAGE_PROCESS_H_
@@ -14,6 +14,7 @@
 #include <memory>
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/opencv.hpp>
+#include "Eigen/Dense"
 #include "ORBextractor.h"
 
 namespace mscnav
@@ -53,6 +54,14 @@ public:
                                        const cv::Matx33f &R_p_c,
                                        const cv::Matx33f &intrinsics,
                                        std::vector<cv::Point2f> &compensated_pts);
+
+    static void CheckFeatureTrack(std::vector<cv::Point2f> &pre_keypoints,
+                                  std::vector<cv::Point2f> &curr_keypoints,
+                                  std::vector<unsigned long long int> &keypoints_id,
+                                  const Eigen::Matrix3d &R_p_c,
+                                  const Eigen::Vector3d &t_p_c,
+                                  const cv::Mat &dist_coeffs,
+                                  const cv::Mat &intrinsics);
 
     static void LKTrack(const cv::Mat &pre_image,
                         const cv::Mat &curr_image,

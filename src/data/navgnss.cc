@@ -142,7 +142,7 @@ void FileGnssData::ReadingData()
 			GnssData::Ptr gd_temp = std::make_shared<GnssData>();
 			gd_temp->set_time(time);
 			gd_temp->pos_ = Vector3d{std::stod(dat[2]), std::stod(dat[3]), std::stod(dat[4])};
-			gd_temp->pos_std_ = Vector3d{std::stod(dat[5]), std::stod(dat[6]), std::stod(dat[7])};
+			gd_temp->pos_std_ = Vector3d{std::stod(dat[5]) , std::stod(dat[6]) , std::stod(dat[7]) };
 			if (std::stoi(dat[8]) == 1 && (!IsBreak(time.SecondOfWeek())))
 			{
 				if (logout_)
@@ -192,7 +192,7 @@ void FileGnssData::DetermineBreakTime(const std::vector<double> &break_time)
 	{
 		low_bound_[i] = breakstart + (breakinterval + breaktime) * i;
 		up_bound_[i] = breakstart + breaktime + (breakinterval + breaktime) * i;
-		LOG(ERROR) << "break time: " << low_bound_[i] <<","<< up_bound_[i] << std::endl;
+		LOG(ERROR) << "break time: " << low_bound_[i] << "," << up_bound_[i] << std::endl;
 	}
 }
 

@@ -142,7 +142,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
 
     //速度对应的误差方程
     // DONE 初步核实完毕,需要再核实
-    F.block<3, 3>(3, 3) = utiltool::skew(wiee) * -2.0;
+    // F.block<3, 3>(3, 3) = utiltool::skew(wiee) * -2.0;
     F.block<3, 3>(3, 6) = utiltool::skew(Cbe * fb);
     F.block<3, 3>(3, 12) = Cbe;
     if (scale_of_acce == 3)
@@ -151,7 +151,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
         F.block<3, 3>(18, 18) = Matrix3d::Identity() * (-1.0 / corr_time_of_acce_scale);
     }
     //姿态对应的误差方程
-    F.block<3, 3>(6, 6) = -1 * utiltool::skew(wiee);
+    // F.block<3, 3>(6, 6) = -1 * utiltool::skew(wiee);
     F.block<3, 3>(6, 9) = -Cbe;
     if (scale_of_gyro == 3)
     {
@@ -162,7 +162,7 @@ Eigen::MatrixXd MechTransferMat(const ImuData &pre_imu_data, const ImuData &curr
     //IMU参数
     F.block<3, 3>(9, 9) = Matrix3d::Identity() * (-1 / corr_time_of_gyro_bias);
     F.block<3, 3>(12, 12) = Matrix3d::Identity() * (-1 / corr_time_of_acce_bias);
-    return MatrixXd::Identity(rows, cols) + F * dt;
+    return MatrixXd::Identity(rows, cols) + F * dt + 0.5 * (F * dt) * (F * dt);
 }
 
 /**

@@ -93,32 +93,32 @@ void DataQueue::SortData()
         data = TimeFirst(bptr_gnss, bptr_imu, bptr_camera);
         if (data != nullptr)
         {
-            // if (data->get_type() != IMUDATA)
-            // {
-            //     const auto &other_time = data->get_time();
-            //     const auto &imu_time = imu->get_time();
-            //     const auto &imu_bak_time = imu_bak->get_time();
-            //     mtx_data_.lock();
-            //     if (fabs(imu_bak_time - other_time) > 2e-3)
-            //     {
-            //         const double dt = (other_time - imu_bak_time) / (imu_time - imu_bak_time);
-            //         ImuData::Ptr middle_imu = std::make_shared<ImuData>(other_time);
-            //         middle_imu->acce_ = imu->acce_ * dt;
-            //         middle_imu->gyro_ = imu->gyro_ * dt;
-            //         imu->acce_ -= middle_imu->acce_;
-            //         imu->gyro_ -= middle_imu->gyro_;
-            //         imu_bak = middle_imu;
-            //         BaseData::bPtr middle_imu_bptr = middle_imu;
-            //         data_queue_.emplace_back(middle_imu_bptr);
-            //         data_queue_.emplace_back(data);
-            //     }
-            //     else
-            //     {
-            //         data_queue_.emplace_back(data);
-            //     }
-            //     mtx_data_.unlock();
-            // }
-            // else
+            if (data->get_type() != IMUDATA)
+            {
+                const auto &other_time = data->get_time();
+                const auto &imu_time = imu->get_time();
+                const auto &imu_bak_time = imu_bak->get_time();
+                mtx_data_.lock();
+                if (fabs(imu_bak_time - other_time) > 2e-3)
+                {
+                    const double dt = (other_time - imu_bak_time) / (imu_time - imu_bak_time);
+                    ImuData::Ptr middle_imu = std::make_shared<ImuData>(other_time);
+                    middle_imu->acce_ = imu->acce_ * dt;
+                    middle_imu->gyro_ = imu->gyro_ * dt;
+                    imu->acce_ -= middle_imu->acce_;
+                    imu->gyro_ -= middle_imu->gyro_;
+                    imu_bak = middle_imu;
+                    BaseData::bPtr middle_imu_bptr = middle_imu;
+                    data_queue_.emplace_back(middle_imu_bptr);
+                    data_queue_.emplace_back(data);
+                }
+                else
+                {
+                    data_queue_.emplace_back(data);
+                }
+                mtx_data_.unlock();
+            }
+            else
             {
                 mtx_data_.lock();
                 data_queue_.emplace_back(data);
