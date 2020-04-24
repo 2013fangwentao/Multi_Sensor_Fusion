@@ -34,7 +34,7 @@ cmake .. && make -j3
 ##### 代码架构简要说明
  文件夹名 | 主要作用 
 -|-
- config | 示例配置文件
+ config | 示例数据配置文件
  doc | 一些参考文档
 exec | 主程序文件
 include | 头文件，按照不同功能下面包含子文件夹
@@ -43,7 +43,7 @@ src | 核心功能的源代码文件
 submodules | 子模块，目前仅挂载tools基本工具
 test | 一些测试代码
 tools | 一些小工具
-example_process | 一组示例数据的配置文件及对应数据的百度云链接
+example_process | 示例数据的百度云链接
 
 ### 功能
 - 支持GNSS/INS松组合解算
