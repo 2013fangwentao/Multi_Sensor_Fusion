@@ -53,11 +53,11 @@ example_process | 示例数据的百度云链接
 ----
 ### 结果示例
 #### 数据说明
-- $采集环境及路线$ 
+- **采集环境及路线**
 <img src="./pic/3.jpg" style="zoom:50%"><img src="./pic/4.jpg" style="zoom:50%">
 <center>武汉大学校内林荫环境</center>
 
-- $卫星观测情况$
+- **卫星观测情况（GPS+BDS）**
 <img src="./pic/6.jpg" style="zoom:40%">
 
 
