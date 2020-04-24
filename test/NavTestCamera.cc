@@ -17,8 +17,13 @@
 #include <opencv2/highgui/highgui.hpp>
 using namespace utiltool;
 
+// 89.4966 - 3.5274 87.8094
+
 int main(int argc, char const *argv[])
 {
+    Eigen::Vector3d m_att(89.4966, -3.5274, 87.8094);
+    m_att *= constant::deg2rad;
+    std::cout << std::fixed << std::setprecision(8) << utiltool::attitude::Euler2RotationMatrix(m_att) << std::endl;
     Eigen::Matrix3d mat;
     mat << 0.03922729, 0.00696737, 0.99920602, 0.99650908, -0.07402227, -0.03860526, 0.07369453, 0.99723225, -0.00984674;
     auto att = utiltool::attitude::RotationMartix2Euler(mat);

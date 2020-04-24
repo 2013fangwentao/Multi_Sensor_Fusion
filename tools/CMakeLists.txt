@@ -7,6 +7,8 @@ SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 
 add_executable(CoorTran ./CoorTransformation.cc)
 target_link_libraries(CoorTran tools ${GFLAGS_LIBRARIES})
+add_executable(CoorTranFile ./CoorTransformationFile.cc)
+target_link_libraries(CoorTranFile tools)
 
 add_executable(TimeTran ./TimeTransformation.cc)
 target_link_libraries(TimeTran tools ${GFLAGS_LIBRARIES})

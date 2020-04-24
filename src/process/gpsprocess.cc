@@ -27,9 +27,13 @@ bool GpsProcess::processing(const utiltool::GnssData::Ptr &gnss_data,
     size_t state_size = filter_->GetStateCov().cols();
     MatrixXd Hmat = MatrixXd::Zero(3, state_size);
     VectorXd Zmat = VectorXd::Zero(3);
-    Vector3d pos_std_pow = (gnss_data->pos_std_).array().pow(2);
+    auto BLH = earth::WGS84XYZ2BLH(nav_info.pos_);
+    auto Ren = earth::CalCe2n(BLH(0), BLH(1));
+    Vector3d pos_std = Ren * gnss_data->pos_std_;
+    pos_std = Ren.transpose() * pos_std;
+    Vector3d pos_std_pow = (pos_std).array().pow(2);
     MatrixXd Rmat = pos_std_pow.asDiagonal();
-    Zmat.segment<3>(0) = CorrectLeverarmPos(nav_info) - pos; 
+    Zmat.segment<3>(0) = CorrectLeverarmPos(nav_info) - pos;
     Hmat.block<3, 3>(0, index.pos_index_) = Matrix3d::Identity();
     Hmat.block<3, 3>(0, index.att_index_) = skew(nav_info.rotation_ * nav_info.leverarm_);
     dx = filter_->MeasureUpdate(Hmat, Zmat, Rmat, gnss_data->get_time());

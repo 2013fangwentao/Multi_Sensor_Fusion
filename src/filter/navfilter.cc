@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Dec 17 下午3:03:16 2018 little fang
-** Last update Wed Feb 11 下午12:29:44 2020 little fang
+** Last update Sat Apr 24 下午3:38:38 2020 little fang
 */
 
 #include "filter/navfilter.h"
@@ -243,6 +243,12 @@ void KalmanFilter::ReviseState(utiltool::NavInfo &nav_info, const Eigen::VectorX
 {
   using namespace utiltool;
   static ConfigInfo::Ptr config = ConfigInfo::GetInstance();
+
+  // static std::string output_path = (config->get<std::string>("result_output_path")) + ("/dx.log");
+  // static std::ofstream ofs_dx_log(output_path);
+  // ofs_dx_log << std::fixed << std::setprecision(5) << nav_info.time_.SecondOfWeek()
+  //            << " " << dx.transpose() << std::endl;
+
   nav_info.pos_ -= dx.segment<3>(state_index_.pos_index_);
   nav_info.vel_ -= dx.segment<3>(state_index_.vel_index_);
   Eigen::Quaterniond q_update = attitude::RotationVector2Quaternion(dx.segment<3>(state_index_.att_index_));
