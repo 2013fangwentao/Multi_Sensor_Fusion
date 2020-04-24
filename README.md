@@ -13,11 +13,11 @@
 - Ceres
 ---
 ### 使用说明
-最新稳定测试版本对应为release/1.0.0分支
+最新稳定测试版本对应为release/3.0.0分支
 Multi-Sensor Fusion使用了submodules形式挂载了tools,因此clone完本程序需要更新tools
 
 ```shell
-git checkout -b release/1.0.0 origin/release/1.0.0
+git checkout -b release/3.0.0 origin/release/3.0.0
 git submodule init
 git submodule update
 ```
