@@ -30,13 +30,6 @@ bool GpsProcess::processing(const utiltool::GnssData::Ptr &gnss_data,
     auto BLH = earth::WGS84XYZ2BLH(nav_info.pos_);
     auto Ren = earth::CalCe2n(BLH(0), BLH(1));
     Vector3d pos_std = Ren * gnss_data->pos_std_;
-    // pos_std(0) /= 10;
-    // pos_std(1) /= 10;
-    // if (355110 < nav_info.time_.SecondOfWeek() && 355240 > nav_info.time_.SecondOfWeek())
-    // {
-    //     LOG(ERROR) << "Set STD" << std::endl;
-    //     pos_std(2) = 2;
-    // }
     pos_std = Ren.transpose() * pos_std;
     Vector3d pos_std_pow = (pos_std).array().pow(2);
     MatrixXd Rmat = pos_std_pow.asDiagonal();

@@ -17,7 +17,7 @@ add_executable(test_processing ./NavProcessing.cc)
 target_link_libraries( test_processing process filter data imu tools)
 
 add_executable(test_image ./NavImage.cc)
-target_link_libraries( test_image orbfeature camera tools process filter ${OpenCV_LIBS} ${GLOG_LIBRARY})
+target_link_libraries( test_image camera tools process filter ${OpenCV_LIBS} ${GLOG_LIBRARY})
 
 
 add_executable(NavTestCamera ./NavTestCamera.cc)

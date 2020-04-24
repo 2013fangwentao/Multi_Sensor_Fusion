@@ -33,7 +33,6 @@ MESSAGE(STATUS "OpenCV include: ${OpenCV_INCLUDE_DIRS}")
 MESSAGE(STATUS "Ceres include: ${CERES_INCLUDE_DIRS}")
 MESSAGE(STATUS "glog include: ${GLOG_INCLUDE_DIR}")
        
-add_subdirectory(${PROJECT_SOURCE_DIR}/thirdparty)
 add_subdirectory(${PROJECT_SOURCE_DIR}/submodules/tools)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/filter)
 add_subdirectory(${PROJECT_SOURCE_DIR}/src/imu)

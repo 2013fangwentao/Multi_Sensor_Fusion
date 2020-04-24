@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Wed Aug 7 上午11:55:45 2019 little fang
-** Last update Sat Mar 27 下午1:32:59 2020 little fang
+** Last update Sat Apr 24 下午3:25:12 2020 little fang
 */
 
 #include "camera/imageprocess.h"
@@ -17,7 +17,6 @@
 #include <opencv2/core/eigen.hpp>
 #include "Eigen/Dense"
 
-using namespace ORB_SLAM2;
 
 static unsigned long long int PointID = 0;
 
@@ -26,7 +25,6 @@ namespace mscnav
 namespace camera
 {
 bool ImageProcess::is_initialed_(false);
-std::shared_ptr<ORBextractor> ImageProcess::orb_extractor_(nullptr);
 cv::Ptr<cv::DescriptorMatcher> ImageProcess::matcher_(cv::DescriptorMatcher::create("BruteForce-Hamming"));
 cv::Ptr<cv::ORB> ImageProcess::cv_orb_(cv::ORB::create(200));
 cv::Ptr<cv::Feature2D> ImageProcess::cv_detector_ptr(cv::FastFeatureDetector::create(20));
@@ -38,12 +36,12 @@ void ImageProcess::Initialize(int nfeatures, float scale_factor, int nlevels,
 {
     if (is_initialed_)
         return;
-    orb_extractor_ =
-        std::make_shared<ORBextractor>(nfeatures,
-                                       scale_factor,
-                                       nlevels,
-                                       ini_th_fast,
-                                       min_th_fast);
+    // orb_extractor_ =
+    //     std::make_shared<ORBextractor>(nfeatures,
+    //                                    scale_factor,
+    //                                    nlevels,
+    //                                    ini_th_fast,
+    //                                    min_th_fast);
     // matcher_ = cv::DescriptorMatcher::create("BruteForce-Hamming");
     is_initialed_ = true;
 }
@@ -64,7 +62,7 @@ void ImageProcess::OrbFreatureExtract(const cv::InputArray &image,
         LOG(ERROR) << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl
                    << " Image Process do not initialized !" << std::endl;
-    (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
+    // (*orb_extractor_)(image, cv::Mat(), keypoints, descriptors);
     // cv_orb_->detectAndCompute(image, cv::Mat(), keypoints, descriptors);
     return;
 }

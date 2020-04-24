@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Tue Aug 6 下午5:13:31 2019 little fang
-** Last update Fri Mar 26 下午7:39:51 2020 little fang
+** Last update Sat Apr 24 下午3:24:39 2020 little fang
 */
 
 #ifndef IMAGE_PROCESS_H_
@@ -15,18 +15,15 @@
 #include <opencv2/features2d/features2d.hpp>
 #include <opencv2/opencv.hpp>
 #include "Eigen/Dense"
-#include "ORBextractor.h"
 
 namespace mscnav
 {
 namespace camera
 {
-using ORB_SLAM2::ORBextractor;
 
 class ImageProcess
 {
 private:
-    static std::shared_ptr<ORBextractor> orb_extractor_;
     static cv::Ptr<cv::DescriptorMatcher> matcher_;
     static bool is_initialed_;
     static cv::Ptr<cv::ORB> cv_orb_;

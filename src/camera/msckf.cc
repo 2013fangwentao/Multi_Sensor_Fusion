@@ -5,7 +5,7 @@
 ** Login   <fangwentao>
 **
 ** Started on  Thu Aug 8 下午8:36:30 2019 little fang
-** Last update Sat Mar 27 下午1:32:48 2020 little fang
+** Last update Sat Apr 24 下午3:40:01 2020 little fang
 */
 
 #include "navattitude.hpp"
@@ -276,7 +276,7 @@ bool MsckfProcess::ProcessImage(const cv::Mat &img_raw, const utiltool::NavTime 
     cv::imshow("key_image", key_image);
     cv::waitKey(1);
     video << key_image;
-    Test();
+    // Test();
 
     //** 匹配的特征加入观测序列中
 
@@ -1046,8 +1046,8 @@ bool MsckfProcess::MeasurementJacobian(const Feature &feature,
         ofs_msckf_info_log_file_ << "z_measure:" << std::endl
                                  << std::setprecision(8) << z_measure << std::endl;
     }
-    static std::string output_path = (config_->get<std::string>("result_output_path")) + ("/measure_std.log");
-    static std::ofstream ofs_measure_log(output_path);
+    // static std::string output_path = (config_->get<std::string>("result_output_path")) + ("/measure_std.log");
+    // static std::ofstream ofs_measure_log(output_path);
     double measure_mean = z_measure.mean();
     double measure_std = 0;
     for (size_t i = 0; i < z_measure.rows(); i++)
