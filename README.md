@@ -13,11 +13,11 @@
 - Ceres
 ---
 ### 使用说明
-最新稳定测试版本对应为release/1.0.0分支
+最新稳定测试版本对应为release/3.0.0分支
 Multi-Sensor Fusion使用了submodules形式挂载了tools,因此clone完本程序需要更新tools
 
 ```shell
-git checkout -b release/1.0.0 origin/release/1.0.0
+git checkout -b release/3.0.0 origin/release/3.0.0
 git submodule init
 git submodule update
 ```
@@ -34,7 +34,7 @@ cmake .. && make -j3
 ##### 代码架构简要说明
  文件夹名 | 主要作用 
 -|-
- config | 示例配置文件
+ config | 示例数据配置文件
  doc | 一些参考文档
 exec | 主程序文件
 include | 头文件，按照不同功能下面包含子文件夹
@@ -43,7 +43,7 @@ src | 核心功能的源代码文件
 submodules | 子模块，目前仅挂载tools基本工具
 test | 一些测试代码
 tools | 一些小工具
-example_process | 一组示例数据的配置文件及对应数据的百度云链接
+example_process | 示例数据的百度云链接
 
 ### 功能
 - 支持GNSS/INS松组合解算
@@ -53,11 +53,11 @@ example_process | 一组示例数据的配置文件及对应数据的百度云�
 ----
 ### 结果示例
 #### 数据说明
-- $采集环境及路线$ 
+- **采集环境及路线**
 <img src="./pic/3.jpg" style="zoom:50%"><img src="./pic/4.jpg" style="zoom:50%">
 <center>武汉大学校内林荫环境</center>
 
-- $卫星观测情况$
+- **卫星观测情况（GPS+BDS）**
 <img src="./pic/6.jpg" style="zoom:40%">
 
 

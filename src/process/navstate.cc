@@ -222,7 +222,7 @@ void State::StartProcessing()
             state_q_used.block<3, 3>(index.vel_index_, index.vel_index_) =
                 Rbe * state_q_used.block<3, 3>(index.vel_index_, index.vel_index_) * Rbe.transpose();
             state_q_used.block<3, 3>(index.att_index_, index.att_index_) =
-                Rbe * state_q_used.block<3, 3>(index.pos_index_, index.pos_index_) * Rbe.transpose();
+                Rbe * state_q_used.block<3, 3>(index.att_index_, index.att_index_) * Rbe.transpose();
             Eigen::MatrixXd Q = (PHI * state_q_used * PHI.transpose() + state_q_used) * 0.5 * dt;
             filter_->TimeUpdate(PHI, Q, base_data->get_time());
             PHI = Eigen::MatrixXd::Identity(state_count, state_count);
