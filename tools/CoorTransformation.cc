@@ -11,7 +11,7 @@
 #include "navbase.hpp"
 #include "navearth.hpp"
 #include "constant.hpp"
-#include "gflags/gflags.h"
+#include <gflags/gflags.h>
 #include <Eigen/Dense>
 #include <string>
 
@@ -24,7 +24,7 @@ DEFINE_string(BLH, "0,0,0", "BLH坐标");
 
 int main(int argc, char *argv[])
 {
-    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    google::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "/*--------------------------- input ---------------------------*/ " << std::endl;
     std::cout << "tran_type: " << FLAGS_tran_type << std::endl;
     std::cout << "angle_type: " << FLAGS_angle_type << std::endl;
@@ -67,6 +67,6 @@ int main(int argc, char *argv[])
         std::cout << "tran_type error" << std::endl;
         exit(0);
     }
-    gflags::ShutDownCommandLineFlags();
+    google::ShutDownCommandLineFlags();
     return 0;
 }

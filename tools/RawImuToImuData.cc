@@ -33,7 +33,7 @@ struct IMU_DATA
 
 int main(int argc, char *argv[])
 {
-    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    google::ParseCommandLineFlags(&argc, &argv, true);
     FILE *fp_imu;
     IMU_DATA imu;
     fp_imu = fopen(FLAGS_ImuRaw.c_str(), "rb");

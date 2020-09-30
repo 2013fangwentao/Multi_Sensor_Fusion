@@ -21,6 +21,8 @@
 #include <memory>
 #include <thread>
 #include <atomic>
+#include <vector>
+
 
 namespace mscnav
 {
