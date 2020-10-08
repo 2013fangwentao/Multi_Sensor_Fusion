@@ -12,6 +12,7 @@
 #include "navattitude.hpp"
 #include "constant.hpp"
 #include <algorithm>
+#include <numeric>
 
 using namespace utiltool;
 using namespace attitude;

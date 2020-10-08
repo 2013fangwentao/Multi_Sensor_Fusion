@@ -90,7 +90,7 @@ int main(int argc, const char **argv)
     }
     picture_file.close();
 
-    if (abs(TimeInfoVec.size() - picture_files.size()) > 2)
+    if (abs(static_cast<int>(TimeInfoVec.size() - picture_files.size()) > 2))
     {
         std::cout << "time stamp error, please check" << std::endl;
         std::cout << "press any key for break" << std::endl;

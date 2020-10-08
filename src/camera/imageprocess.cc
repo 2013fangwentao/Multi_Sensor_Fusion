@@ -16,6 +16,7 @@
 #include <opencv2/video/tracking.hpp>
 #include <opencv2/core/eigen.hpp>
 #include "Eigen/Dense"
+#include <numeric>
 
 
 static unsigned long long int PointID = 0;

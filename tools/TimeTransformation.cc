@@ -11,7 +11,7 @@ DEFINE_string(doytime, "2019, 01,0.0", "年积日时间");
 
 int main(int argc, char *argv[])
 {
-    gflags::ParseCommandLineFlags(&argc, &argv, true);
+    google::ParseCommandLineFlags(&argc, &argv, true);
     std::cout << "/*--------------------------- input ---------------------------*/ " << std::endl;
     std::cout << "input time type: " << FLAGS_time_type << std::endl
               << std::endl;

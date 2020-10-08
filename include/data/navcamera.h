@@ -16,6 +16,7 @@
 #include <thread>
 #include <mutex>
 #include <fstream>
+#include <vector>
 
 namespace mscnav
 {
