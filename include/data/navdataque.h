@@ -86,7 +86,7 @@ inline utiltool::BaseData::bPtr &TimeFirst(utiltool::BaseData::bPtr &t1, utiltoo
     }
 }
 template <typename... Args>
-inline utiltool::BaseData::bPtr &TimeFirst(utiltool::BaseData::bPtr &t, Args... args)
+inline utiltool::BaseData::bPtr &TimeFirst(utiltool::BaseData::bPtr &t, Args&... args)
 {
     utiltool::BaseData::bPtr &t1 = (TimeFirst(args...));
     return TimeFirst(t, t1);
