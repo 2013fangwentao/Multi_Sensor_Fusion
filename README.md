@@ -1,6 +1,10 @@
 # Multi-Sensor Fusion
 
-版本号：release/3.0.0
+
+[*方文涛. 大气增强PPP/MEMS惯导/视觉里程计融合定位研究[D].武汉大学,2020.*](https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CMFD&dbname=CMFD202101&filename=1020969883.nh&uniplatform=NZKPT&v=igHPPI4WEUpm5pnfstuIPr8IXrMwBy9c7iI_utCrWxRiygg7s3p2_Wv9svcczXyT)
+
+pdf版: [大气增强PPP/MEMS惯导/视觉里程计融合定位研究](./doc/大气增强PPP-MEMS惯导-视觉里程计融合定位研究.pdf)
+
 ---
 ### 初衷
 - 学习组合导航和VIO相关内容.
@@ -10,14 +14,14 @@
 - glog 
 - Eigen
 - OpenCV 3.4
-- Ceres
+- Ceres 1.14.0
 ---
 ### 使用说明
-最新稳定测试版本对应为release/3.0.0分支
+最新稳定测试版本对应为dev分支
 Multi-Sensor Fusion使用了submodules形式挂载了tools,因此clone完本程序需要更新tools
 
 ```shell
-git checkout -b release/3.0.0 origin/release/3.0.0
+git checkout -b dev origin/dev
 git submodule init
 git submodule update
 ```
