@@ -1,11 +1,3 @@
-# DJI飞行系统招聘
-DJI大疆创新-飞行系统，大量HC，涉及定位感知、规划控制、机器人算法，嵌入式开发，传感器算法等多个岗位，有想法的小伙伴找我内推，简历直达，流程加速~
-
-欢迎大家加Q 1280269817咨询  相关链接：[DJI大疆招聘](https://we.dji.com/zh-CN/social?category=1&keyWord=%E9%A3%9E%E8%A1%8C)
-
-# Multi-Sensor Fusion
-
-
 [*方文涛. 大气增强PPP/MEMS惯导/视觉里程计融合定位研究[D].武汉大学,2020.*](https://kns.cnki.net/kcms/detail/detail.aspx?dbcode=CMFD&dbname=CMFD202101&filename=1020969883.nh&uniplatform=NZKPT&v=igHPPI4WEUpm5pnfstuIPr8IXrMwBy9c7iI_utCrWxRiygg7s3p2_Wv9svcczXyT)
 
 pdf版: [大气增强PPP/MEMS惯导/视觉里程计融合定位研究](./doc/大气增强PPP-MEMS惯导-视觉里程计融合定位研究.pdf)
